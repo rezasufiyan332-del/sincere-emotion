@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Menu, X, ShoppingCart, LogOut, User } from 'lucide-react'
+import { Menu, X, ShoppingCart, LogOut, User, BookOpen } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCartStore } from '@/lib/store/cart'
@@ -94,6 +94,16 @@ export function ModernHeader() {
                 <span className="absolute bottom-0 left-0 h-px w-0 bg-[#f59e0b] transition-all duration-300 group-hover:w-full" />
               </a>
             ))}
+            {user && (
+              <Link
+                href="/library"
+                className="relative text-sm font-medium text-[#94a3b8] hover:text-[#f8fafc] transition-colors duration-200 py-1 group"
+              >
+                <BookOpen className="w-4 h-4 inline mr-1" />
+                My Library
+                <span className="absolute bottom-0 left-0 h-px w-0 bg-[#f59e0b] transition-all duration-300 group-hover:w-full" />
+              </Link>
+            )}
           </nav>
 
           {/* Right side */}
@@ -111,6 +121,13 @@ export function ModernHeader() {
                   <User className="w-4 h-4" />
                   {user.name || user.email}
                 </span>
+                <Link
+                  href="/library"
+                  className="flex items-center gap-1.5 text-sm font-medium text-[#94a3b8] hover:text-[#f59e0b] transition-colors duration-200"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  My Library
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="flex items-center gap-1.5 text-sm font-medium text-[#94a3b8] hover:text-[#f59e0b] transition-colors duration-200"
@@ -175,6 +192,16 @@ export function ModernHeader() {
               {item.label}
             </a>
           ))}
+          {user && (
+            <a
+              href="/library"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="block px-3 py-2.5 text-sm font-medium text-[#94a3b8] hover:text-[#f8fafc] hover:bg-[#1a1a24] rounded-lg transition-colors duration-200 flex items-center gap-2"
+            >
+              <BookOpen className="w-4 h-4" />
+              My Library
+            </a>
+          )}
           <a
             href="/orders"
             onClick={() => setIsMobileMenuOpen(false)}
@@ -188,6 +215,14 @@ export function ModernHeader() {
                 <span className="block px-3 py-2 text-sm text-[#94a3b8]">
                   Signed in as {user.name || user.email}
                 </span>
+                <Link
+                  href="/library"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="block px-3 py-2.5 text-sm font-medium text-[#f59e0b] hover:bg-[#1a1a24] rounded-lg transition-colors duration-200 flex items-center gap-2"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  My Library
+                </Link>
                 <button
                   onClick={() => { handleLogout(); setIsMobileMenuOpen(false) }}
                   className="w-full text-left px-3 py-2.5 text-sm font-medium text-[#f59e0b] hover:bg-[#1a1a24] rounded-lg transition-colors duration-200"

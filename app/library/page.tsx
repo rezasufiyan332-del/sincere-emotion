@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Loader2, BookOpen, ShoppingCart, Clock, CheckCircle } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Loader2, BookOpen, ShoppingCart, Clock, CheckCircle, User, Lock } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 interface LibraryItem {
@@ -16,27 +17,52 @@ interface LibraryItem {
 }
 
 export default function LibraryPage() {
+  const router = useRouter()
   const [library, setLibrary] = useState<LibraryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [user, setUser] = useState<{ name?: string; email: string } | null>(null)
+  const [authChecked, setAuthChecked] = useState(false)
 
   useEffect(() => {
-    fetchLibrary()
+    checkAuthAndFetch()
   }, [])
+
+  async function checkAuthAndFetch() {
+    try {
+      // First check if user is logged in
+      const authRes = await fetch('/api/auth/me')
+      const authData = await authRes.json()
+      
+      if (authData.success && authData.data) {
+        setUser({ name: authData.data.name, email: authData.data.email })
+        // User is logged in, fetch library
+        await fetchLibrary()
+      } else {
+        // Not logged in
+        setAuthChecked(true)
+        setLoading(false)
+      }
+    } catch {
+      setAuthChecked(true)
+      setLoading(false)
+    }
+  }
 
   async function fetchLibrary() {
     try {
       const res = await fetch('/api/library')
       const data = await res.json()
       if (data.success) {
-        setLibrary(data.data)
+        setLibrary(data.data || [])
       } else {
         setError(data.error?.message || 'Failed to load library')
       }
     } catch (err) {
-      setError('Failed to load library. Please login first.')
+      setError('Failed to load library')
     } finally {
       setLoading(false)
+      setAuthChecked(true)
     }
   }
 
@@ -49,6 +75,10 @@ export default function LibraryPage() {
     }).format(paise / 100)
   }
 
+  function handleLogin() {
+    router.push('/auth/login')
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
@@ -57,28 +87,67 @@ export default function LibraryPage() {
     )
   }
 
-  if (error) {
+  if (!user && !authChecked) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-[#64748b] mb-4">{error}</p>
-          <Link
-            href="/auth/login"
-            className="px-6 py-2 bg-[#f59e0b] text-black rounded-lg hover:bg-[#d97706]"
-          >
-            Login to View Library
-          </Link>
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center px-4">
+        <Loader2 className="w-8 h-8 text-[#f59e0b] animate-spin" />
+      </div>
+    )
+  }
+
+  if (!user) {
+    // Not logged in state
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] py-12">
+        <div className="max-w-2xl mx-auto px-4 text-center">
+          <div className="mb-8">
+            <Lock className="w-16 h-16 text-[#64748b] mx-auto mb-4" />
+            <h1 className="text-3xl font-bold text-white mb-2">Sign In to Access Your Library</h1>
+            <p className="text-[#64748b] mb-8">
+              Your purchased guides and free books are linked to your account.
+              Please sign in to view your library.
+            </p>
+          </div>
+          <div className="space-y-4">
+            <button
+              onClick={handleLogin}
+              className="w-full py-3 bg-[#f59e0b] text-black font-semibold rounded-lg hover:bg-[#d97706] transition-colors"
+            >
+              Sign In
+            </button>
+            <Link
+              href="/auth/register"
+              className="block w-full py-3 border border-[#334155] text-white font-semibold rounded-lg hover:border-[#475569] hover:bg-white/5 transition-colors"
+            >
+              Create Account
+            </Link>
+          </div>
+          <p className="mt-8 text-sm text-[#64748b]">
+            Free books are also added to your library after signing in.
+          </p>
         </div>
       </div>
     )
   }
 
+  // User is logged in
   return (
     <div className="min-h-screen bg-[#0a0a0f] py-12">
       <div className="max-w-6xl mx-auto px-4">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">My Library</h1>
-          <p className="text-[#64748b]">Your purchased digital guides</p>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">My Library</h1>
+            <p className="text-[#64748b]">
+              Welcome back, {user.name || user.email}! Your purchased digital guides.
+            </p>
+          </div>
+          <Link
+            href="/#product"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-[#f59e0b] text-black rounded-lg hover:bg-[#d97706] font-semibold"
+          >
+            <ShoppingCart className="w-5 h-5" />
+            Browse More Guides
+          </Link>
         </div>
 
         {library.length === 0 ? (
@@ -119,6 +188,16 @@ export default function LibraryPage() {
                   {item.price === 0 && (
                     <span className="absolute top-2 right-2 px-2 py-1 bg-green-500 text-white text-xs font-bold rounded">
                       FREE
+                    </span>
+                  )}
+                  {item.source === 'PURCHASED' && (
+                    <span className="absolute top-2 left-2 px-2 py-1 bg-[#f59e0b] text-black text-xs font-bold rounded">
+                      Purchased
+                    </span>
+                  )}
+                  {item.source === 'FREE' && (
+                    <span className="absolute top-2 left-2 px-2 py-1 bg-emerald-500 text-white text-xs font-bold rounded">
+                      Free Access
                     </span>
                   )}
                 </div>

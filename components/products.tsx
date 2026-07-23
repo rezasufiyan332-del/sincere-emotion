@@ -1,9 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { motion } from 'framer-motion'
-import { CheckCircle2, ShoppingCart, BookOpen, Lock, Tag } from 'lucide-react'
-import Image from 'next/image'
+import { CheckCircle2, ShoppingCart, BookOpen } from 'lucide-react'
 import { useCartStore, type CartProduct } from '@/lib/store/cart'
 import { useUIStore } from '@/lib/store/ui'
 import { ProductsSkeleton } from '@/components/products-skeleton'
@@ -11,32 +9,29 @@ import { ProductsError } from '@/components/products-error'
 
 interface ApiProduct {
   id: string
-  name: string
+  title: string
   slug: string
   subtitle: string
   description: string
   price: number
   originalPrice: number | null
-  image: string | null
-  features: string[]
-  bestseller: boolean
-  featured: boolean
-  active: boolean
+  coverImage: string | null
+  tags: string[]
+  isFeatured: boolean
+  isActive: boolean
   isFree: boolean
-  createdAt: string
-  updatedAt: string
 }
 
 interface DisplayProduct {
   id: string
   name: string
+  slug: string
   subtitle: string
   description: string
   price: number
   originalPrice: number
   image: string
   benefits: string[]
-  bestseller: boolean
   featured: boolean
   isFree: boolean
 }
@@ -58,15 +53,15 @@ function formatINR(rupees: number): string {
 function mapApiProduct(api: ApiProduct): DisplayProduct {
   return {
     id: api.id,
-    name: api.name,
+    name: api.title,
+    slug: api.slug,
     subtitle: api.subtitle,
     description: api.description,
     price: paiseToRupees(api.price),
     originalPrice: paiseToRupees(api.originalPrice ?? api.price),
-    image: api.image || '/product-placeholder.png',
-    benefits: api.features,
-    bestseller: api.bestseller,
-    featured: api.featured,
+    image: api.coverImage || '/product-placeholder.png',
+    benefits: Array.isArray(api.tags) ? api.tags : (api.tags ? (api.tags as string).split(' ') : []),
+    featured: api.isFeatured,
     isFree: api.isFree,
   }
 }
@@ -90,7 +85,7 @@ export function Products() {
         throw new Error(json.error?.message || 'Failed to load products')
       }
       const mapped = (json.data.products as ApiProduct[])
-        .filter((p) => p.active)
+        .filter((p) => p.isActive)
         .map(mapApiProduct)
       setProducts(mapped)
     } catch (err) {
@@ -104,10 +99,26 @@ export function Products() {
     fetchProducts()
   }, [fetchProducts])
 
-  const handleAddToCart = (product: DisplayProduct) => {
+  const handleAddToCart = async (product: DisplayProduct) => {
     if (product.isFree) {
-      // For free products, add to library directly
-      window.location.href = `/api/library/add-free?productId=${product.id}`
+      try {
+        const res = await fetch('/api/library/add-free', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productId: product.id }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          addToast('success', data.message || 'Added to your library!')
+          if (data.redirectUrl) {
+            setTimeout(() => { window.location.href = data.redirectUrl }, 1000)
+          }
+        } else {
+          addToast('error', data.error?.message || 'Failed to add free book')
+        }
+      } catch {
+        addToast('error', 'Failed to add free book')
+      }
       return
     }
 
@@ -124,12 +135,6 @@ export function Products() {
     setTimeout(() => toggleCart(), 300)
   }
 
-  if (loading) return <ProductsSkeleton />
-  if (error) return <ProductsError onRetry={fetchProducts} />
-
-  const regularProducts = products.filter((p) => !p.featured)
-  const featuredProduct = products.find((p) => p.featured)
-
   const cardStyle = {
     backgroundColor: '#1a1a24',
     border: '1px solid #1e293b',
@@ -144,6 +149,16 @@ export function Products() {
     e.currentTarget.style.borderColor = '#1e293b'
   }
 
+  if (loading) {
+    return <ProductsSkeleton />
+  }
+  if (error) {
+    return <ProductsError onRetry={fetchProducts} />
+  }
+
+  const regularProducts = products.filter((p) => !p.featured)
+  const featuredProduct = products.find((p) => p.featured)
+
   return (
     <section
       id="product"
@@ -151,13 +166,7 @@ export function Products() {
       style={{ background: 'linear-gradient(180deg, #0f0f18 0%, #0a0a0f 100%)' }}
     >
       <div className="max-w-[1200px] mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-16"
-        >
+        <div className="text-center mb-16">
           <p className="text-sm font-medium uppercase tracking-widest text-[#f59e0b] mb-4">
             Our Guides
           </p>
@@ -167,16 +176,12 @@ export function Products() {
           <p className="text-lg text-[#64748b] max-w-[500px] mx-auto">
             Transformative digital guides to help you understand your attachment patterns and build secure relationships.
           </p>
-        </motion.div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {regularProducts.map((product, idx) => (
-            <motion.div
+            <div
               key={product.id}
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: idx * 0.1 }}
               className="rounded-xl p-8 flex flex-col h-full transition-colors duration-250 relative"
               style={cardStyle}
               onMouseEnter={handleMouseEnter}
@@ -189,7 +194,7 @@ export function Products() {
               )}
               {product.image && (
                 <div className="relative w-full aspect-[4/3] mb-6 rounded-lg overflow-hidden bg-[#22222e]">
-                  <Image src={product.image} alt={product.name} fill className="object-cover" sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 380px" />
+                  <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
                 </div>
               )}
               <h3 className="text-lg font-semibold text-[#f8fafc] mb-1">{product.name}</h3>
@@ -240,16 +245,12 @@ export function Products() {
               <p className="text-xs text-[#64748b] text-center mt-3">
                 {product.isFree ? 'Instant access · No payment needed' : 'Instant access · 30-day guarantee'}
               </p>
-            </motion.div>
+            </div>
           ))}
         </div>
 
         {featuredProduct && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.3 }}
+          <div
             className="relative rounded-xl p-8 transition-colors duration-250"
             style={cardStyle}
             onMouseEnter={handleMouseEnter}
@@ -307,26 +308,20 @@ export function Products() {
               </div>
               {featuredProduct.image && (
                 <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden bg-[#22222e]">
-                  <Image src={featuredProduct.image} alt={featuredProduct.name} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
+                  <img src={featuredProduct.image} alt={featuredProduct.name} className="w-full h-full object-cover" />
                 </div>
               )}
             </div>
-          </motion.div>
+          </div>
         )}
 
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-          className="mt-16 text-center"
-        >
+        <div className="mt-16 text-center">
           <p className="text-[#cbd5e1] mb-6">Not sure which guide is right for you?</p>
           <button className="px-8 py-3 border border-[#64748b] text-[#f8fafc] font-semibold rounded-lg hover:border-[#f59e0b] hover:text-[#f59e0b] transition-colors duration-200">
             Take the Attachment Quiz
           </button>
-        </motion.div>
+        </div>
       </div>
-    </section>
-  )
+</section>
+    )
 }

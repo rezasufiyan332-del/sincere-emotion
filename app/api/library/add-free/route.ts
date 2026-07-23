@@ -85,10 +85,10 @@ export async function POST(request: NextRequest) {
     })
 
     if (existing) {
-      return apiSuccess({
+      return {
         message: 'Already in your library',
         redirectUrl: `/read/${product.slug}`,
-      })
+      }
     }
 
     // Add to library
@@ -105,9 +105,9 @@ export async function POST(request: NextRequest) {
       productId,
     }))
 
-    return apiSuccess({
+    return {
       message: 'Added to your library!',
       redirectUrl: `/read/${product.slug}`,
-    })
+    }
   })
 }

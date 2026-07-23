@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!sessionToken) {
-      return apiSuccess({ data: [], message: 'No session found' })
+      return []
     }
 
     // Validate session
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!session || session.expires < new Date()) {
-      return apiSuccess({ data: [], message: 'Invalid session' })
+      return []
     }
 
     // Get user's library
@@ -60,17 +60,15 @@ export async function GET(request: NextRequest) {
       count: library.length,
     }))
 
-    return apiSuccess({
-      data: library.map((item) => ({
-        id: item.id,
-        title: item.product.title,
-        slug: item.product.slug,
-        coverImage: item.product.coverImage,
-        price: item.product.price,
-        format: item.product.format,
-        acquiredAt: item.acquiredAt.toISOString(),
-        source: item.source,
-      })),
-    })
+    return library.map((item) => ({
+      id: item.id,
+      title: item.product.title,
+      slug: item.product.slug,
+      coverImage: item.product.coverImage,
+      price: item.product.price,
+      format: item.product.format,
+      acquiredAt: item.acquiredAt.toISOString(),
+      source: item.source,
+    }))
   })
 }

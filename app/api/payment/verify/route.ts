@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { verifyPaymentSignature } from '@/lib/razorpay-utils'
 import { apiSuccess, apiError, AppError, withErrorHandling } from '@/lib/errors'
 import { getOrCreateRequestId, withRequestContext } from '@/lib/request-id'
+import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
   const requestId = getOrCreateRequestId()
@@ -63,14 +64,34 @@ export async function POST(request: NextRequest) {
     // Calculate total
     const total = parsedItems.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0)
 
-    // Determine user ID
+    // FIRST: Check for existing session (logged in user)
     let userId = ''
-    let user = await prisma.user.findUnique({
-      where: { email: customerData.email.toLowerCase() },
-    })
+    let user = null
 
+    // Try to get session from cookie
+    const cookieStore = await cookies()
+    const sessionToken = cookieStore.get('session-token')?.value
+
+    if (sessionToken) {
+      const session = await prisma.session.findUnique({
+        where: { sessionToken },
+        include: { user: true },
+      })
+      if (session && session.expires > new Date()) {
+        user = session.user
+        userId = user.id
+      }
+    }
+
+    // If no session, try to find user by email
     if (!user) {
-      // Create guest user for order tracking
+      user = await prisma.user.findUnique({
+        where: { email: customerData.email.toLowerCase() },
+      })
+    }
+
+    // If still no user, create guest user
+    if (!user) {
       user = await prisma.user.create({
         data: {
           email: customerData.email.toLowerCase(),
