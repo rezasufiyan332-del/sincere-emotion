@@ -53,7 +53,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Dynamic product pages - handle db connection failures gracefully
   try {
     const products = await prisma.product.findMany({
-      where: { active: true },
+      where: { isActive: true },
       select: { slug: true, updatedAt: true },
     })
 

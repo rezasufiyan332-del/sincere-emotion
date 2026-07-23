@@ -16,29 +16,36 @@ export async function POST(request: NextRequest) {
       0
     )
 
+    // Create order first
     const order = await prisma.order.create({
       data: {
         userId: session.user.id,
         email: data.email,
         name: data.name,
-        items: data.items,
         total,
         status: 'PENDING',
-        orderItems: {
-          create: data.items.map((item) => ({
-            productId: item.productId,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-          })),
-        },
-      },
-      include: {
-        orderItems: true,
       },
     })
 
-    return apiSuccess(order, 201)
+    // Create order items separately
+    await prisma.orderItem.createMany({
+      data: data.items.map((item) => ({
+        orderId: order.id,
+        productId: item.productId,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+      })),
+    })
+
+    // Fetch order items separately
+    const orderItems = await prisma.orderItem.findMany({
+      where: { orderId: order.id },
+    })
+
+    const orderWithItems = { ...order, orderItems }
+
+    return apiSuccess(orderWithItems, 201)
   })
 }
 
@@ -56,7 +63,6 @@ export async function GET(request: NextRequest) {
     const [orders, total] = await Promise.all([
       prisma.order.findMany({
         where,
-        include: { orderItems: true },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
@@ -64,8 +70,29 @@ export async function GET(request: NextRequest) {
       prisma.order.count({ where }),
     ])
 
+    // Fetch order items for all orders
+    const orderIds = orders.map(o => o.id)
+    const orderItems = await prisma.orderItem.findMany({
+      where: { orderId: { in: orderIds } },
+    })
+
+    // Group items by orderId
+    const itemsByOrderId = new Map<string, typeof orderItems>()
+    for (const item of orderItems) {
+      if (!itemsByOrderId.has(item.orderId)) {
+        itemsByOrderId.set(item.orderId, [])
+      }
+      itemsByOrderId.get(item.orderId)!.push(item)
+    }
+
+    // Combine orders with their items
+    const ordersWithItems = orders.map(order => ({
+      ...order,
+      orderItems: itemsByOrderId.get(order.id) || [],
+    }))
+
     return apiSuccess({
-      orders,
+      orders: ordersWithItems,
       meta: {
         page,
         limit,

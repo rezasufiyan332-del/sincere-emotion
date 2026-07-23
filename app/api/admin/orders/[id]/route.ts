@@ -20,9 +20,6 @@ export async function GET(
       where: { id },
       include: {
         user: { select: { id: true, name: true, email: true } },
-        orderItems: {
-          include: { product: { select: { id: true, name: true, slug: true, image: true } } },
-        },
       },
     })
 
@@ -30,7 +27,19 @@ export async function GET(
       throw new NotFoundError('Order')
     }
 
-    return apiSuccess(order)
+    // Fetch order items separately
+    const orderItems = await prisma.orderItem.findMany({
+      where: { orderId: id },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        quantity: true,
+        productId: true,
+      },
+    })
+
+    return apiSuccess({ ...order, orderItems })
   })
 }
 
@@ -50,13 +59,22 @@ export async function PUT(
       data,
       include: {
         user: { select: { id: true, name: true, email: true } },
-        orderItems: {
-          include: { product: { select: { id: true, name: true, slug: true, image: true } } },
-        },
       },
     })
 
-    return apiSuccess(order)
+    // Fetch order items separately
+    const orderItems = await prisma.orderItem.findMany({
+      where: { orderId: id },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        quantity: true,
+        productId: true,
+      },
+    })
+
+    return apiSuccess({ ...order, orderItems })
   })
 }
 

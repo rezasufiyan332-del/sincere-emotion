@@ -7,6 +7,16 @@ import Image from 'next/image'
 import { useCartStore } from '@/lib/store/cart'
 import { useUIStore } from '@/lib/store/ui'
 
+function formatINR(rupees: number): string {
+  if (rupees === 0) return 'FREE'
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(rupees)
+}
+
 export function CartSidebar() {
   const cartOpen = useUIStore((state) => state.cartOpen)
   const toggleCart = useUIStore((state) => state.toggleCart)
@@ -92,7 +102,7 @@ export function CartSidebar() {
                         {item.product.name}
                       </h3>
                       <p className="text-sm font-semibold text-primary mt-0.5">
-                        ${item.product.price}
+                        {formatINR(item.product.price)}
                       </p>
 
                       <div className="flex items-center gap-2 mt-2">
@@ -135,12 +145,12 @@ export function CartSidebar() {
               <div className="border-t border-border p-6 space-y-3">
                 {savings > 0 && (
                   <p className="text-sm text-primary">
-                    You&apos;re saving ${savings.toFixed(2)}
+                    You&apos;re saving {formatINR(savings)}
                   </p>
                 )}
                 <div className="flex justify-between text-base font-semibold text-white">
                   <span>Total</span>
-                  <span>${total.toFixed(2)}</span>
+                  <span>{formatINR(total)}</span>
                 </div>
                 <button
                   onClick={() => {

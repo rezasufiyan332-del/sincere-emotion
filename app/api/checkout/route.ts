@@ -65,15 +65,20 @@ export async function POST(request: NextRequest) {
     for (const item of data.items) {
       const product = await prisma.product.findUnique({
         where: { id: item.productId },
-        select: { id: true, name: true, price: true, image: true, subtitle: true, active: true },
+        select: { id: true, title: true, price: true, coverImage: true, subtitle: true, isActive: true, isFree: true },
       })
 
-      if (!product || !product.active) {
+      if (!product || !product.isActive) {
         throw new AppError(
           `Product ${item.productId} not found or unavailable`,
           400,
           'PRODUCT_UNAVAILABLE'
         )
+      }
+
+      // Skip free products (they should be handled via free book flow)
+      if (product.isFree) {
+        continue
       }
 
       // Use only database price (never client price)
@@ -82,10 +87,10 @@ export async function POST(request: NextRequest) {
 
       verifiedItems.push({
         productId: product.id,
-        name: product.name,
+        title: product.title,
         price: product.price,
         quantity: item.quantity,
-        image: product.image,
+        coverImage: product.coverImage,
         subtitle: product.subtitle,
       })
     }
@@ -112,9 +117,9 @@ export async function POST(request: NextRequest) {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: item.name,
+              name: item.title,
               description: item.subtitle || undefined,
-              images: item.image ? [`${baseUrl}${item.image}`] : [],
+              images: item.coverImage ? [`${baseUrl}${item.coverImage}`] : [],
             },
             unit_amount: item.price, // Database price - verified
           },
@@ -128,7 +133,7 @@ export async function POST(request: NextRequest) {
           items: JSON.stringify(
             verifiedItems.map((item) => ({
               productId: item.productId,
-              name: item.name,
+              title: item.title,
               price: item.price,
               quantity: item.quantity,
             }))

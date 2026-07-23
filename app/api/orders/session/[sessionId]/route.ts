@@ -13,12 +13,10 @@ export async function GET(
       return apiSuccess({ success: false, error: { message: 'Session ID required' } }, 400)
     }
 
+    // Try to find order by razorpay order ID (used as session ID in Razorpay flow)
     const order = await prisma.order.findFirst({
       where: {
-        stripeSessionId: sessionId,
-      },
-      include: {
-        orderItems: true,
+        razorpayOrderId: sessionId,
       },
     })
 
@@ -26,13 +24,18 @@ export async function GET(
       return apiSuccess({ success: false, error: { message: 'Order not found' } }, 404)
     }
 
+    // Fetch order items separately
+    const orderItems = await prisma.orderItem.findMany({
+      where: { orderId: order.id },
+    })
+
     return apiSuccess({
       id: order.id,
       email: order.email,
       name: order.name,
       total: order.total,
       status: order.status,
-      items: order.orderItems.map((item: typeof order.orderItems[0]) => ({
+      items: orderItems.map((item) => ({
         name: item.name,
         price: item.price,
         quantity: item.quantity,

@@ -17,7 +17,7 @@ export async function getProductOrThrow(productId: string) {
     throw new AppError(`Product not found: ${productId}`, 404, 'PRODUCT_NOT_FOUND')
   }
 
-  if (!product.active) {
+  if (!product.isActive) {
     throw new AppError('Product is no longer available', 404, 'PRODUCT_UNAVAILABLE')
   }
 
@@ -45,14 +45,18 @@ export async function getUserOrThrow(userId: string) {
 export async function getOrderOrThrow(orderId: string) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { orderItems: true },
   })
 
   if (!order) {
     throw new AppError('Order not found', 404, 'ORDER_NOT_FOUND')
   }
 
-  return order
+  // Fetch order items separately
+  const orderItems = await prisma.orderItem.findMany({
+    where: { orderId: order.id },
+  })
+
+  return { ...order, orderItems }
 }
 
 /**
@@ -73,7 +77,7 @@ export async function verifyOrderOwnership(orderId: string, userId: string) {
  */
 export async function getActiveProducts() {
   return prisma.product.findMany({
-    where: { active: true },
+    where: { isActive: true },
     orderBy: { createdAt: 'desc' },
   })
 }
@@ -91,7 +95,6 @@ export async function getUserWithRelations(userId: string) {
       },
       orders: {
         orderBy: { createdAt: 'desc' },
-        include: { orderItems: true },
         take: 10,
       },
     },
@@ -101,7 +104,32 @@ export async function getUserWithRelations(userId: string) {
     throw new AppError('User not found', 404, 'USER_NOT_FOUND')
   }
 
-  return user
+  // Fetch order items for all orders
+  const rawOrders = user.orders
+  const orderIds = rawOrders.map(o => o.id)
+  const orderItems = await prisma.orderItem.findMany({
+    where: { orderId: { in: orderIds } },
+  })
+
+  // Group items by orderId
+  const itemsByOrderId = new Map<string, typeof orderItems>()
+  for (const item of orderItems) {
+    if (!itemsByOrderId.has(item.orderId)) {
+      itemsByOrderId.set(item.orderId, [])
+    }
+    itemsByOrderId.get(item.orderId)!.push(item)
+  }
+
+  // Combine orders with their items
+  const ordersWithItems = rawOrders.map(order => ({
+    ...order,
+    orderItems: itemsByOrderId.get(order.id) || [],
+  }))
+
+  return {
+    ...user,
+    orders: ordersWithItems,
+  }
 }
 
 /**
@@ -112,15 +140,15 @@ export async function createOrderFromCheckout(data: {
   email: string
   name: string
   items: Array<{ productId: string; name: string; price: number; quantity: number }>
-  stripeSessionId?: string
+  razorpaySessionId?: string
   paymentId?: string
 }) {
   const total = data.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
   // Check for duplicate order (idempotency)
-  if (data.stripeSessionId) {
+  if (data.razorpaySessionId) {
     const existing = await prisma.order.findFirst({
-      where: { stripeSessionId: data.stripeSessionId },
+      where: { razorpayOrderId: data.razorpaySessionId },
     })
     if (existing) {
       return existing
@@ -137,7 +165,7 @@ export async function createOrderFromCheckout(data: {
         total,
         status: 'COMPLETED',
         paymentId: data.paymentId || null,
-        stripeSessionId: data.stripeSessionId || null,
+        razorpayOrderId: data.razorpaySessionId || null,
         orderItems: {
           create: data.items.map((item) => ({
             productId: item.productId,

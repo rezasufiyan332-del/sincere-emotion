@@ -9,7 +9,7 @@ export default async function AdminDashboardPage() {
     prisma.order.count(),
     prisma.order.aggregate({ _sum: { total: true }, where: { status: 'COMPLETED' } }),
     prisma.user.count(),
-    prisma.product.count({ where: { active: true } }),
+    prisma.product.count({ where: { isActive: true } }),
   ])
 
   const stats = [

@@ -97,6 +97,7 @@ export const productQuerySchema = z.object({
     .enum(['newest', 'oldest', 'price-asc', 'price-desc'])
     .default('newest'),
   search: z.string().optional(),
+  slug: z.string().optional(),
   active: z.coerce.boolean().default(true),
   bestseller: z.coerce.boolean().optional(),
   featured: z.coerce.boolean().optional(),
@@ -121,6 +122,7 @@ export const checkoutSchema = z.object({
     .max(20, 'Cart cannot exceed 20 items'),
   email: emailSchema,
   name: nameSchema,
+  phone: z.string().min(10, 'Phone number required for payment').max(15).optional(),
 })
 
 export const createOrderSchema = z.object({

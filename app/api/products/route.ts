@@ -14,12 +14,13 @@ export async function GET(request: NextRequest) {
       const query = validateSearchParams(searchParams, productQuerySchema)
 
       const where = {
-        active: query.active,
-        ...(query.bestseller !== undefined && { bestseller: query.bestseller }),
-        ...(query.featured !== undefined && { featured: query.featured }),
+        isActive: query.active,
+        ...(query.slug && { slug: query.slug }),
+        ...(query.bestseller !== undefined && { isFeatured: query.bestseller }),
+        ...(query.featured !== undefined && { isFeatured: query.featured }),
         ...(query.search && {
           OR: [
-            { name: { contains: query.search, mode: 'insensitive' as const } },
+            { title: { contains: query.search, mode: 'insensitive' as const } },
             { description: { contains: query.search, mode: 'insensitive' as const } },
           ],
         }),
@@ -41,17 +42,19 @@ export async function GET(request: NextRequest) {
       // PERFORMANCE: Only select fields needed by frontend
       const select = {
         id: true,
-        name: true,
+        title: true,
         slug: true,
         subtitle: true,
         description: true,
         price: true,
         originalPrice: true,
-        image: true,
-        features: true,
-        bestseller: true,
-        featured: true,
-        active: true,
+        coverImage: true,
+        isFree: true,
+        format: true,
+        pdfUrl: true,
+        tags: true,
+        isFeatured: true,
+        isActive: true,
         createdAt: true,
         updatedAt: true,
       }

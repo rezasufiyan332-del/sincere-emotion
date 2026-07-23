@@ -7,6 +7,16 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
+function formatINR(paise: number): string {
+  if (paise === 0) return 'FREE'
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(paise / 100)
+}
+
 const statusStyles: Record<string, string> = {
   PENDING: 'bg-[#f59e0b]/20 text-[#f59e0b] border-[#f59e0b]/30',
   PROCESSING: 'bg-[#f59e0b]/20 text-[#f59e0b] border-[#f59e0b]/30',
@@ -25,6 +35,7 @@ export default async function AdminOrderDetailPage({
 
   const { id } = await params
 
+  // Fetch order without include first
   const order = await prisma.order.findUnique({
     where: { id },
     include: {
@@ -36,7 +47,17 @@ export default async function AdminOrderDetailPage({
     notFound()
   }
 
-  const items = order.items as Array<{ name: string; price: number; quantity: number; productId: string }>
+  // Fetch order items separately
+  const items = await prisma.orderItem.findMany({
+    where: { orderId: id },
+    select: {
+      id: true,
+      name: true,
+      price: true,
+      quantity: true,
+      productId: true,
+    },
+  })
 
   return (
     <div className="space-y-6">
@@ -76,11 +97,11 @@ export default async function AdminOrderDetailPage({
                       <Package className="w-10 h-10 text-[#64748b] flex-shrink-0" />
                       <div className="min-w-0">
                         <p className="text-white font-medium truncate">{item.name}</p>
-                        <p className="text-sm text-[#64748b]">Qty: {item.quantity} × ${(item.price / 100).toFixed(2)}</p>
+                        <p className="text-sm text-[#64748b]">Qty: {item.quantity} × {formatINR(item.price)}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-white font-bold">${((item.price * item.quantity) / 100).toFixed(2)}</p>
+                      <p className="text-white font-bold">{formatINR(item.price * item.quantity)}</p>
                     </div>
                   </div>
                 ))}
@@ -129,11 +150,11 @@ export default async function AdminOrderDetailPage({
             <CardContent className="space-y-4">
               <div className="flex justify-between text-sm">
                 <span className="text-[#64748b]">Subtotal</span>
-                <span className="text-white">${(order.total / 100).toFixed(2)}</span>
+                <span className="text-white">{formatINR(order.total)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-[#64748b]">Total</span>
-                <span className="text-white font-bold text-lg">${(order.total / 100).toFixed(2)}</span>
+                <span className="text-white font-bold text-lg">{formatINR(order.total)}</span>
               </div>
 
               <div className="pt-4 border-t border-[#1e293b] space-y-3">
@@ -165,11 +186,11 @@ export default async function AdminOrderDetailPage({
               </div>
               <div className="flex justify-between">
                 <span className="text-[#64748b]">Payment ID</span>
-                <span className="text-white font-mono text-xs">{order.paymentId || 'N/A'}</span>
+                <span className="text-white font-mono text-xs">{order.razorpayPaymentId || 'N/A'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#64748b]">Stripe Session</span>
-                <span className="text-white font-mono text-xs">{order.stripeSessionId || 'N/A'}</span>
+                <span className="text-[#64748b]">Razorpay Order</span>
+                <span className="text-white font-mono text-xs">{order.razorpayOrderId || 'N/A'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[#64748b]">Created</span>

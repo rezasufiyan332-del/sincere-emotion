@@ -8,14 +8,14 @@ const productQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(10),
   search: z.string().optional(),
-  active: z.coerce.boolean().optional(),
+  isActive: z.coerce.boolean().optional(),
   featured: z.coerce.boolean().optional(),
   bestseller: z.coerce.boolean().optional(),
   sort: z.enum(['newest', 'oldest', 'price-asc', 'price-desc']).default('newest'),
 })
 
 const createProductSchema = z.object({
-  name: z.string().min(1).max(200),
+  title: z.string().min(1).max(200),
   slug: z.string().min(1).max(200),
   subtitle: z.string().min(1).max(500),
   description: z.string().min(1),
@@ -25,7 +25,7 @@ const createProductSchema = z.object({
   features: z.array(z.string()).default([]),
   bestseller: z.boolean().default(false),
   featured: z.boolean().default(false),
-  active: z.boolean().default(true),
+  isActive: z.boolean().default(true),
 })
 
 export async function GET(request: NextRequest) {
@@ -36,12 +36,12 @@ export async function GET(request: NextRequest) {
     const query = productQuerySchema.parse(Object.fromEntries(searchParams))
 
     const where = {
-      ...(query.active !== undefined && { active: query.active }),
+      ...(query.isActive !== undefined && { isActive: query.isActive }),
       ...(query.featured !== undefined && { featured: query.featured }),
       ...(query.bestseller !== undefined && { bestseller: query.bestseller }),
       ...(query.search && {
         OR: [
-          { name: { contains: query.search, mode: 'insensitive' as const } },
+          { title: { contains: query.search, mode: 'insensitive' as const } },
           { description: { contains: query.search, mode: 'insensitive' as const } },
           { subtitle: { contains: query.search, mode: 'insensitive' as const } },
         ],
@@ -71,15 +71,13 @@ export async function GET(request: NextRequest) {
       prisma.product.count({ where }),
     ])
 
-    const totalPages = Math.ceil(total / query.limit)
-
     return apiSuccess({
       products,
       meta: {
         page: query.page,
         limit: query.limit,
         total,
-        totalPages,
+        totalPages: Math.ceil(total / query.limit),
       },
     })
   })
@@ -102,17 +100,16 @@ export async function POST(request: NextRequest) {
 
     const product = await prisma.product.create({
       data: {
-        name: data.name,
+        title: data.title,
         slug: data.slug,
         subtitle: data.subtitle,
         description: data.description,
         price: data.price,
         originalPrice: data.originalPrice,
-        image: data.image,
-        features: data.features,
-        bestseller: data.bestseller,
-        featured: data.featured,
-        active: data.active,
+        coverImage: data.image,
+        tags: data.features,
+        isFeatured: data.featured,
+        isActive: data.isActive,
       },
     })
 

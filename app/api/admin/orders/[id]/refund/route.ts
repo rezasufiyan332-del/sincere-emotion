@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { stripe } from '@/lib/stripe'
+import { razorpay } from '@/lib/razorpay'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth'
 import { sendRefundEmail } from '@/lib/email'
@@ -40,18 +40,17 @@ export async function POST(
       )
     }
 
-    if (!order.paymentId) {
+    if (!order.razorpayPaymentId) {
       return NextResponse.json(
         { success: false, error: { code: 'NO_PAYMENT', message: 'No payment ID found for this order' } },
         { status: 400 }
       )
     }
 
-    // Create Stripe refund
-    const refund = await stripe.refunds.create({
-      payment_intent: order.paymentId,
-      reason: 'requested_by_customer',
-      metadata: {
+    // Create Razorpay refund
+    const refund = await razorpay.payments.refund(order.razorpayPaymentId, {
+      amount: order.total,
+      notes: {
         orderId: id,
         reason: reason || 'Admin initiated refund',
       },

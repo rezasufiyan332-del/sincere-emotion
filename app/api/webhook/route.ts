@@ -1,258 +1,188 @@
 import { NextRequest } from 'next/server'
-import { stripe } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
-import Stripe from 'stripe'
+import { verifyWebhookSignature } from '@/lib/razorpay-utils'
 import { sendOrderConfirmation } from '@/lib/email'
 import { getOrCreateRequestId, withRequestContext } from '@/lib/request-id'
 
 export const runtime = 'nodejs'
 
-interface CheckoutMetadata {
-  userId?: string
-  customerName: string
-  customerEmail: string
-  items: string
-}
-
-interface StoredItem {
-  productId: string
-  name: string
-  price: number
-  quantity: number
+interface RazorpayWebhookEvent {
+  event: string
+  payload: {
+    payment: {
+      entity: {
+        id: string
+        order_id: string
+        amount: number
+        status: string
+        notes?: Record<string, string>
+      }
+      order?: {
+        entity: {
+          id: string
+          amount: number
+          status: string
+          notes?: Record<string, string>
+        }
+      }
+    }
+    order?: {
+      entity: {
+        id: string
+        amount: number
+        status: string
+        notes?: Record<string, string>
+      }
+    }
+    refund?: {
+      entity: {
+        id: string
+        amount: number
+        status: string
+        payment_id: string
+      }
+    }
+  }
 }
 
 export async function POST(request: NextRequest) {
   const requestId = getOrCreateRequestId()
   const body = await request.text()
-  const signature = request.headers.get('stripe-signature')
+  const signature = request.headers.get('x-razorpay-signature')
 
-  // Verify signature is present
+  // Verify webhook signature
   if (!signature) {
     console.warn(withRequestContext(requestId, 'Webhook request missing signature'))
     return Response.json({ error: 'Missing signature' }, { status: 400 })
   }
 
-  let event: Stripe.Event
-
-  try {
-    // Verify webhook signature for security
-    event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    )
-  } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : String(err)
-    console.error(
-      withRequestContext(requestId, 'Webhook signature verification failed', {
-        error: errorMsg,
-      })
-    )
+  if (!verifyWebhookSignature(body, signature, process.env.RAZORPAY_WEBHOOK_SECRET!)) {
+    console.error(withRequestContext(requestId, 'Webhook signature verification failed'))
     return Response.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
+  let event: RazorpayWebhookEvent
   try {
-    console.info(
-      withRequestContext(requestId, 'Webhook event received', {
-        eventType: event.type,
-        eventId: event.id,
-      })
-    )
+    event = JSON.parse(body)
+  } catch (err) {
+    console.error(withRequestContext(requestId, 'Failed to parse webhook body', { error: String(err) }))
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
 
-    // Handle different event types
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session
-        await handleCheckoutComplete(session, requestId)
+  console.info(withRequestContext(requestId, 'Webhook event received', {
+    eventType: event.event,
+    eventId: event.payload.payment.entity.id,
+  }))
+
+  try {
+    switch (event.event) {
+      case 'payment.captured': {
+        const payment = event.payload.payment.entity
+        await handlePaymentCaptured(payment, requestId)
         break
       }
 
-      case 'payment_intent.payment_failed': {
-        const intent = event.data.object as Stripe.PaymentIntent
+      case 'payment.failed': {
+        const payment = event.payload.payment.entity
         console.error(
           withRequestContext(requestId, 'Payment failed', {
-            intentId: intent.id,
-            status: intent.status,
+            paymentId: payment.id,
+            status: payment.status,
           })
         )
         break
       }
 
-      case 'charge.refunded': {
-        const charge = event.data.object as Stripe.Charge
-        console.info(
-          withRequestContext(requestId, 'Charge refunded', {
-            chargeId: charge.id,
-            refunded: charge.refunded,
-          })
-        )
+      case 'order.paid': {
+        const order = event.payload.order?.entity
+        if (order) {
+          console.info(withRequestContext(requestId, 'Order paid', { orderId: order.id }))
+        }
+        break
+      }
+
+      case 'refund.created': {
+        const refund = event.payload.payment?.entity
+        console.info(withRequestContext(requestId, 'Refund created', { refundId: refund?.id }))
         break
       }
 
       default:
-        console.debug(withRequestContext(requestId, `Unhandled event type: ${event.type}`))
+        console.debug(withRequestContext(requestId, `Unhandled event type: ${event.event}`))
     }
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err)
     console.error(
       withRequestContext(requestId, 'Error processing webhook event', {
-        eventType: event.type,
+        eventType: event.event,
         error: errorMsg,
       })
     )
-    // Still return 200 to prevent Stripe from retrying
   }
 
-  // Always return 200 to prevent Stripe from retrying
+  // Always return 200 to prevent Razorpay from retrying
   return Response.json({ received: true })
 }
 
-async function handleCheckoutComplete(
-  session: Stripe.Checkout.Session,
-  requestId: string
-) {
-  const meta = session.metadata as CheckoutMetadata | null
+async function handlePaymentCaptured(payment: RazorpayWebhookEvent['payload']['payment']['entity'], requestId: string) {
+  const orderId = payment.order_id
+  const paymentId = payment.id
+  const amount = payment.amount
+  const notes = payment.notes || {}
 
-  // Validate metadata
-  if (!meta?.customerEmail || !meta?.customerName) {
-    console.error(
-      withRequestContext(requestId, 'Missing required metadata', {
-        sessionId: session.id,
-        hasEmail: !!meta?.customerEmail,
-        hasName: !!meta?.customerName,
-      })
-    )
-    return
-  }
+  console.info(withRequestContext(requestId, 'Payment captured', { orderId, paymentId, amount }))
 
-  // Parse items
-  let items: StoredItem[]
-  try {
-    items = JSON.parse(meta.items)
-  } catch (err) {
-    console.error(
-      withRequestContext(requestId, 'Failed to parse items metadata', {
-        sessionId: session.id,
-        error: err instanceof Error ? err.message : String(err),
-      })
-    )
-    return
-  }
-
-  // Validate items array
-  if (!Array.isArray(items) || items.length === 0) {
-    console.error(
-      withRequestContext(requestId, 'Invalid items array', {
-        sessionId: session.id,
-        isArray: Array.isArray(items),
-        length: items?.length,
-      })
-    )
-    return
-  }
-
-  // Calculate total
-  const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-
-  // Check for duplicate order (idempotency)
-  const existing = await prisma.order.findFirst({
-    where: { stripeSessionId: session.id },
+  // Find the order in our database
+  const order = await prisma.order.findUnique({
+    where: { razorpayOrderId: orderId },
   })
 
-  if (existing) {
-    console.info(
-      withRequestContext(requestId, 'Order already exists, skipping', {
-        sessionId: session.id,
-        orderId: existing.id,
-      })
-    )
+  if (!order) {
+    console.warn(withRequestContext(requestId, 'Order not found for payment', { orderId }))
     return
   }
 
-  // Determine user ID
-  let userId: string = meta.userId || ''
-  if (!userId) {
-    // Try to find existing user by email
-    const existingUser = await prisma.user.findUnique({
-      where: { email: meta.customerEmail.toLowerCase() },
-    })
-
-    if (existingUser) {
-      userId = existingUser.id
-      console.info(
-        withRequestContext(requestId, 'Found existing user for email', {
-          userId,
-        })
-      )
-    } else {
-      // Create guest user for order tracking
-      const guestUser = await prisma.user.create({
-        data: {
-          email: meta.customerEmail.toLowerCase(),
-          name: meta.customerName,
-          passwordHash: '', // No password for guest accounts
-        },
-      })
-      userId = guestUser.id
-      console.info(
-        withRequestContext(requestId, 'Created guest user for order', {
-          userId,
-          email: meta.customerEmail,
-        })
-      )
-    }
-  }
-
-  // Create order
-  await prisma.order.create({
-    data: {
-      userId: userId,
-      email: meta.customerEmail.toLowerCase(),
-      name: meta.customerName,
-      total,
-      status: 'COMPLETED',
-      paymentId: (session.payment_intent as string) || null,
-      stripeSessionId: session.id,
-      items: items.map((i) => ({
-        name: i.name,
-        price: i.price,
-        quantity: i.quantity,
-      })),
-      orderItems: {
-        create: items.map((item) => ({
-          productId: item.productId,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-        })),
+  // Update order status if not already completed
+  if (order.status !== 'COMPLETED') {
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status: 'COMPLETED',
+        razorpayPaymentId: paymentId,
       },
-    },
+    })
+  }
+
+  // Ensure library entries exist for all items
+  const orderItems = await prisma.orderItem.findMany({
+    where: { orderId: order.id },
   })
 
-  console.info(
-    withRequestContext(requestId, 'Order created successfully', {
-      sessionId: session.id,
-      userId,
-      total,
-      itemCount: items.length,
-    })
-  )
+  for (const item of orderItems) {
+    await prisma.userLibrary.create({
+      data: {
+        userId: order.userId,
+        productId: item.productId,
+        source: 'PURCHASED',
+        orderId: order.id,
+      },
+    }).catch(() => {}) // Ignore duplicates
+  }
 
-  // Send confirmation email (non-blocking)
-  sendOrderConfirmation(
-    meta.customerEmail,
-    meta.customerName,
-    items.map((item) => ({
-      name: item.name,
-      price: item.price,
-      quantity: item.quantity,
-    })),
-    total
-  ).catch((err) =>
-    console.error(
-      withRequestContext(requestId, 'Order confirmation email failed', {
-        error: err instanceof Error ? err.message : String(err),
-      })
-    )
-  )
+  // Send confirmation email
+  if (notes.customerEmail && notes.customerName) {
+    const items = orderItems.map(i => ({
+      name: i.name,
+      price: i.price,
+      quantity: i.quantity,
+    }))
+    sendOrderConfirmation(notes.customerEmail, notes.customerName, items, amount).catch(() => {})
+  }
+
+  console.info(withRequestContext(requestId, 'Order fulfilled', {
+    orderId: order.id,
+    userId: order.userId,
+    total: order.total,
+    itemCount: orderItems.length,
+  }))
 }

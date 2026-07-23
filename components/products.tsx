@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { CheckCircle2, ShoppingCart } from 'lucide-react'
+import { CheckCircle2, ShoppingCart, BookOpen, Lock, Tag } from 'lucide-react'
 import Image from 'next/image'
 import { useCartStore, type CartProduct } from '@/lib/store/cart'
 import { useUIStore } from '@/lib/store/ui'
@@ -22,6 +22,7 @@ interface ApiProduct {
   bestseller: boolean
   featured: boolean
   active: boolean
+  isFree: boolean
   createdAt: string
   updatedAt: string
 }
@@ -37,17 +38,21 @@ interface DisplayProduct {
   benefits: string[]
   bestseller: boolean
   featured: boolean
+  isFree: boolean
 }
 
-function centsToDollars(cents: number): number {
-  return cents / 100
+function paiseToRupees(paise: number): number {
+  return paise / 100
 }
 
-function formatDollars(dollars: number): string {
-  return new Intl.NumberFormat('en-US', {
+function formatINR(rupees: number): string {
+  if (rupees === 0) return 'FREE'
+  return new Intl.NumberFormat('en-IN', {
     style: 'currency',
-    currency: 'USD',
-  }).format(dollars)
+    currency: 'INR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(rupees)
 }
 
 function mapApiProduct(api: ApiProduct): DisplayProduct {
@@ -56,12 +61,13 @@ function mapApiProduct(api: ApiProduct): DisplayProduct {
     name: api.name,
     subtitle: api.subtitle,
     description: api.description,
-    price: centsToDollars(api.price),
-    originalPrice: centsToDollars(api.originalPrice ?? api.price),
+    price: paiseToRupees(api.price),
+    originalPrice: paiseToRupees(api.originalPrice ?? api.price),
     image: api.image || '/product-placeholder.png',
     benefits: api.features,
     bestseller: api.bestseller,
     featured: api.featured,
+    isFree: api.isFree,
   }
 }
 
@@ -94,12 +100,17 @@ export function Products() {
     }
   }, [])
 
-  // PERFORMANCE FIX: Use existing fetchProducts callback, no duplicate logic
   useEffect(() => {
     fetchProducts()
   }, [fetchProducts])
 
   const handleAddToCart = (product: DisplayProduct) => {
+    if (product.isFree) {
+      // For free products, add to library directly
+      window.location.href = `/api/library/add-free?productId=${product.id}`
+      return
+    }
+
     const cartProduct: CartProduct = {
       id: product.id,
       name: product.name,
@@ -154,7 +165,7 @@ export function Products() {
             Healing starts with understanding
           </h2>
           <p className="text-lg text-[#64748b] max-w-[500px] mx-auto">
-            Evidence-based guides to help you understand your attachment patterns and build secure relationships.
+            Transformative digital guides to help you understand your attachment patterns and build secure relationships.
           </p>
         </motion.div>
 
@@ -166,11 +177,16 @@ export function Products() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: idx * 0.1 }}
-              className="rounded-xl p-8 flex flex-col h-full transition-colors duration-250"
+              className="rounded-xl p-8 flex flex-col h-full transition-colors duration-250 relative"
               style={cardStyle}
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
             >
+              {product.isFree && (
+                <div className="absolute top-4 left-4 bg-emerald-500 text-black px-3 py-1 rounded-full text-xs font-bold uppercase">
+                  FREE
+                </div>
+              )}
               {product.image && (
                 <div className="relative w-full aspect-[4/3] mb-6 rounded-lg overflow-hidden bg-[#22222e]">
                   <Image src={product.image} alt={product.name} fill className="object-cover" sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 380px" />
@@ -190,25 +206,40 @@ export function Products() {
               <div className="w-full h-px bg-[#1e293b] mb-6" />
               <div className="mb-5">
                 <div className="flex items-baseline gap-2.5">
-                  <span className="text-2xl font-bold text-[#f8fafc]">{formatDollars(product.price)}</span>
-                  {product.originalPrice > product.price && (
-                    <span className="text-sm text-[#64748b] line-through">{formatDollars(product.originalPrice)}</span>
+                  <span className="text-2xl font-bold text-[#f8fafc]">{formatINR(product.price)}</span>
+                  {product.originalPrice > product.price && !product.isFree && (
+                    <span className="text-sm text-[#64748b] line-through">{formatINR(product.originalPrice)}</span>
                   )}
                 </div>
-                {product.originalPrice > product.price && (
+                {product.originalPrice > product.price && !product.isFree && (
                   <p className="text-xs text-emerald-500 mt-1">
-                    Save {formatDollars(product.originalPrice - product.price)}
+                    Save {formatINR(product.originalPrice - product.price)}
                   </p>
                 )}
               </div>
               <button
                 onClick={() => handleAddToCart(product)}
-                className="w-full py-3 bg-[#f59e0b] hover:bg-[#d97706] text-[#0a0a0f] font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
+                className={`w-full py-3 font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 ${
+                  product.isFree
+                    ? 'bg-emerald-500 hover:bg-emerald-600 text-black'
+                    : 'bg-[#f59e0b] hover:bg-[#d97706] text-[#0a0a0f]'
+                }`}
               >
-                <ShoppingCart className="w-5 h-5" />
-                Add to Cart
+                {product.isFree ? (
+                  <>
+                    <BookOpen className="w-5 h-5" />
+                    Read Free
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCart className="w-5 h-5" />
+                    Add to Cart
+                  </>
+                )}
               </button>
-              <p className="text-xs text-[#64748b] text-center mt-3">Instant access · 30-day guarantee</p>
+              <p className="text-xs text-[#64748b] text-center mt-3">
+                {product.isFree ? 'Instant access · No payment needed' : 'Instant access · 30-day guarantee'}
+              </p>
             </motion.div>
           ))}
         </div>
@@ -224,9 +255,16 @@ export function Products() {
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
           >
-            <div className="absolute top-4 left-4 bg-[#f59e0b] text-[#0a0a0f] px-3 py-1 rounded-full text-xs font-bold uppercase">
-              Best Value
-            </div>
+            {featuredProduct.isFree && (
+              <div className="absolute top-4 left-4 bg-emerald-500 text-black px-3 py-1 rounded-full text-xs font-bold uppercase">
+                FREE
+              </div>
+            )}
+            {!featuredProduct.isFree && (
+              <div className="absolute top-4 left-4 bg-[#f59e0b] text-[#0a0a0f] px-3 py-1 rounded-full text-xs font-bold uppercase">
+                Best Value
+              </div>
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center mt-4">
               <div>
                 <h3 className="text-2xl font-bold text-[#f8fafc] mb-2">{featuredProduct.name}</h3>
@@ -242,25 +280,29 @@ export function Products() {
                 </div>
                 <div className="mb-6">
                   <div className="flex items-baseline gap-2.5 mb-1">
-                    <span className="text-3xl font-bold text-[#f8fafc]">{formatDollars(featuredProduct.price)}</span>
-                    {featuredProduct.originalPrice > featuredProduct.price && (
-                      <span className="text-lg text-[#64748b] line-through">{formatDollars(featuredProduct.originalPrice)}</span>
+                    <span className="text-3xl font-bold text-[#f8fafc]">{formatINR(featuredProduct.price)}</span>
+                    {featuredProduct.originalPrice > featuredProduct.price && !featuredProduct.isFree && (
+                      <span className="text-lg text-[#64748b] line-through">{formatINR(featuredProduct.originalPrice)}</span>
                     )}
                   </div>
-                  {featuredProduct.originalPrice > featuredProduct.price && (
+                  {featuredProduct.originalPrice > featuredProduct.price && !featuredProduct.isFree && (
                     <p className="text-sm text-emerald-500 font-medium">
-                      Save {formatDollars(featuredProduct.originalPrice - featuredProduct.price)}
+                      Save {formatINR(featuredProduct.originalPrice - featuredProduct.price)}
                     </p>
                   )}
                 </div>
                 <button
                   onClick={() => handleAddToCart(featuredProduct)}
-                  className="w-full py-3 bg-[#f59e0b] hover:bg-[#d97706] text-[#0a0a0f] font-semibold rounded-lg transition-colors duration-200"
+                  className={`w-full py-3 font-semibold rounded-lg transition-colors duration-200 ${
+                    featuredProduct.isFree
+                      ? 'bg-emerald-500 hover:bg-emerald-600 text-black'
+                      : 'bg-[#f59e0b] hover:bg-[#d97706] text-[#0a0a0f]'
+                  }`}
                 >
-                  Get Complete Bundle
+                  {featuredProduct.isFree ? 'Get Free Access' : 'Get Complete Bundle'}
                 </button>
                 <p className="text-xs text-[#64748b] text-center mt-3">
-                  Instant access · 30-day guarantee · Lifetime updates
+                  {featuredProduct.isFree ? 'Instant access · No payment needed' : 'Instant access · 30-day guarantee · Lifetime updates'}
                 </p>
               </div>
               {featuredProduct.image && (

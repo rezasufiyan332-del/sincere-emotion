@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, CheckCircle, Package, Mail, DollarSign, ArrowLeft } from 'lucide-react'
+import { Loader2, CheckCircle, Package, Mail, ArrowLeft } from 'lucide-react'
 import { useCartStore } from '@/lib/store/cart'
 
 interface OrderData {
@@ -16,9 +16,18 @@ interface OrderData {
   createdAt: string
 }
 
+function formatINR(rupees: number): string {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(rupees)
+}
+
 export default function CheckoutSuccessPage() {
   const searchParams = useSearchParams()
-  const sessionId = searchParams.get('session_id')
+  const orderId = searchParams.get('order_id')
   const [order, setOrder] = useState<OrderData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -26,14 +35,14 @@ export default function CheckoutSuccessPage() {
 
   useEffect(() => {
     async function fetchOrder() {
-      if (!sessionId) {
-        setError('No session ID found')
+      if (!orderId) {
+        setError('No order ID found')
         setLoading(false)
         return
       }
 
       try {
-        const res = await fetch(`/api/orders/session/${sessionId}`)
+        const res = await fetch(`/api/orders/${orderId}`)
         const data = await res.json()
 
         if (!data.success || data.error) {
@@ -50,7 +59,7 @@ export default function CheckoutSuccessPage() {
     }
 
     fetchOrder()
-  }, [sessionId, clearCart])
+  }, [orderId, clearCart])
 
   if (loading) {
     return (
@@ -72,7 +81,7 @@ export default function CheckoutSuccessPage() {
           </div>
           <h1 className="text-2xl font-bold text-foreground">Order Not Found</h1>
           <p className="text-muted-foreground">
-            {error || "We couldn't find an order for this session. Your payment may still be processing."}
+            {error || "We couldn't find an order for this ID. Your payment may still be processing."}
           </p>
           <div className="flex gap-3 justify-center pt-4">
             <Link
@@ -123,14 +132,14 @@ export default function CheckoutSuccessPage() {
                 </div>
               </div>
               <span className="font-medium text-foreground">
-                ${(item.price / 100).toFixed(2)}
+                {formatINR(item.price)}
               </span>
             </div>
           ))}
 
           <div className="border-t border-border pt-3 flex justify-between font-semibold text-lg">
             <span>Total</span>
-            <span>${(order.total / 100).toFixed(2)}</span>
+            <span>{formatINR(order.total)}</span>
           </div>
         </div>
 
@@ -140,7 +149,7 @@ export default function CheckoutSuccessPage() {
             <span>Confirmation sent to {order.email}</span>
           </div>
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <DollarSign className="w-4 h-4" />
+            <Package className="w-4 h-4" />
             <span>Order placed on {new Date(order.createdAt).toLocaleDateString('en-US', {
               year: 'numeric',
               month: 'long',
@@ -152,11 +161,11 @@ export default function CheckoutSuccessPage() {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Link
-          href="/"
+          href="/library"
           className="flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
         >
           <Package className="w-4 h-4" />
-          View Order History
+          Go to Library
         </Link>
         <Link
           href="/"

@@ -40,11 +40,30 @@ export async function GET(request: NextRequest) {
     }
     if (!user) throw new UnauthorizedError()
 
-    const orders = await prisma.order.findMany({
+    // Fetch orders without include, then fetch items separately
+    const rawOrders = await prisma.order.findMany({
       where: { userId: user.id },
-      include: { orderItems: true },
       orderBy: { createdAt: 'desc' },
     })
+
+    const orderIds = rawOrders.map(o => o.id)
+    const orderItems = await prisma.orderItem.findMany({
+      where: { orderId: { in: orderIds } },
+    })
+
+    // Group items by orderId
+    const itemsByOrderId = new Map<string, typeof orderItems>()
+    for (const item of orderItems) {
+      if (!itemsByOrderId.has(item.orderId)) {
+        itemsByOrderId.set(item.orderId, [])
+      }
+      itemsByOrderId.get(item.orderId)!.push(item)
+    }
+
+    const orders = rawOrders.map(o => ({
+      ...o,
+      orderItems: itemsByOrderId.get(o.id) || [],
+    }))
 
     const totalOrders = orders.length
     const totalSpent = orders.reduce((sum: number, o: typeof orders[0]) => sum + o.total, 0)
@@ -56,7 +75,7 @@ export async function GET(request: NextRequest) {
         total: o.total,
         status: o.status,
         createdAt: o.createdAt.toISOString(),
-        orderItems: o.orderItems.map((i: typeof o.orderItems[0]) => ({ name: i.name, price: i.price, quantity: i.quantity } as const)),
+        orderItems: o.orderItems.map((i: typeof orderItems[0]) => ({ name: i.name, price: i.price, quantity: i.quantity } as const)),
       })),
       stats: { totalOrders, totalSpent },
     })

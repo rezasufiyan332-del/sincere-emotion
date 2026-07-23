@@ -13,7 +13,6 @@ export async function GET(
 
     const order = await prisma.order.findUnique({
       where: { id },
-      include: { orderItems: true },
     })
 
     if (!order) {
@@ -24,6 +23,11 @@ export async function GET(
       throw new ForbiddenError('You do not have access to this order')
     }
 
-    return apiSuccess(order)
+    // Fetch order items separately
+    const orderItems = await prisma.orderItem.findMany({
+      where: { orderId: id },
+    })
+
+    return apiSuccess({ ...order, orderItems })
   })
 }

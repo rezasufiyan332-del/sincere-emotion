@@ -8,25 +8,26 @@ datasource db {
 }
 
 model User {
-  id                    String    @id @default(cuid())
-  email                 String    @unique
-  passwordHash          String?
-  name                  String?
-  role                  Role      @default(USER)
-  emailVerified         DateTime?
-  provider              String?   @default("credentials")
-  resetToken            String?   @unique
-  resetTokenExpiry      DateTime?
-  emailVerificationToken String?   @unique
+  id                      String            @id @default(cuid())
+  email                   String            @unique
+  passwordHash            String?
+  name                    String?
+  role                    Role              @default(USER)
+  emailVerified           DateTime?
+  provider                String?           @default("credentials")
+  resetToken              String?           @unique
+  resetTokenExpiry        DateTime?
+  emailVerificationToken  String?           @unique
   emailVerificationExpiry DateTime?
-  twoFactorSecret       String?   @unique
-  twoFactorEnabled      Boolean   @default(false)
-  twoFactorBackupCodes  String[]
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  orders   Order[]
-  sessions Session[]
+  twoFactorSecret         String?           @unique
+  twoFactorEnabled        Boolean           @default(false)
+  twoFactorBackupCodes    String[]
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+  orders                  Order[]
+  progress                ReadingProgress[]
+  sessions                Session[]
+  library                 UserLibrary[]
 }
 
 model Session {
@@ -42,61 +43,98 @@ model Session {
 }
 
 model Product {
-  id            String   @id @default(cuid())
-  name          String
-  slug          String   @unique
-  subtitle      String
+  id            String            @id @default(cuid())
+  slug          String            @unique
+  title         String
+  subtitle      String?
   description   String
+  author        String            @default("Sincere Emotion")
+  coverImage    String?
   price         Int
   originalPrice Int?
-  image         String?
-  features      String[]
-  bestseller    Boolean  @default(false)
-  featured      Boolean  @default(false)
-  active        Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  isFree        Boolean           @default(false)
+  format        DigitalFormat     @default(EPUB)
+  pdfUrl        String?
+  sampleUrl     String?
+  pages         Int?
+  language      String            @default("en")
+  isActive      Boolean           @default(true)
+  isFeatured    Boolean           @default(false)
+  category      String?
+  tags          String[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  epubUrl       String?
+  orderItems    OrderItem[]
+  progress      ReadingProgress[]
+  libraryItems  UserLibrary[]
 
-  orderItems OrderItem[]
+  @@index([isActive, isFree])
+  @@index([isFeatured])
+  @@index([category])
+}
 
-  @@index([active])
-  @@index([bestseller])
-  @@index([featured])
-  @@index([active, createdAt])
+model UserLibrary {
+  id         String        @id @default(cuid())
+  userId     String
+  productId  String
+  acquiredAt DateTime      @default(now())
+  source     LibrarySource @default(PURCHASED)
+  orderId    String?
+  product    Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+}
+
+model ReadingProgress {
+  id         String   @id @default(cuid())
+  userId     String
+  productId  String
+  cfi        String?
+  pageNumber Int?
+  percentage Float    @default(0)
+  lastReadAt DateTime @default(now())
+  deviceInfo Json?
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
 }
 
 model Order {
-  id              String      @id @default(cuid())
-  userId          String
-  items           Json
-  total           Int
-  status          OrderStatus @default(PENDING)
-  email           String
-  name            String
-  paymentId       String?
-  stripeSessionId String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-
-  user       User        @relation(fields: [userId], references: [id])
-  orderItems OrderItem[]
+  id                String      @id @default(cuid())
+  userId            String
+  email             String
+  name              String
+  phone             String?
+  total             Int
+  status            OrderStatus @default(PENDING)
+  razorpayOrderId   String?     @unique
+  razorpayPaymentId String?     @unique
+  razorpaySignature String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  user              User        @relation(fields: [userId], references: [id])
+  items             OrderItem[]
 
   @@index([userId])
   @@index([status])
+  @@index([razorpayOrderId])
   @@index([email])
-  @@index([stripeSessionId])
 }
 
 model OrderItem {
-  id        String @id @default(cuid())
+  id        String  @id @default(cuid())
   orderId   String
   productId String
   name      String
   price     Int
-  quantity  Int
-
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
+  quantity  Int     @default(1)
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
 
   @@index([orderId])
   @@index([productId])
@@ -126,6 +164,18 @@ model AuditLog {
   @@index([adminId])
   @@index([action])
   @@index([createdAt])
+}
+
+enum DigitalFormat {
+  EPUB
+  PDF
+  BOTH
+}
+
+enum LibrarySource {
+  PURCHASED
+  FREE
+  BUNDLE
 }
 
 enum Role {

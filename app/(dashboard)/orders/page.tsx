@@ -10,24 +10,60 @@ interface OrderItem {
   quantity: number
 }
 
-interface Order {
-  id: string
-  total: number
-  status: string
-  createdAt: Date
-  items: OrderItem[] | unknown
-}
-
 export default async function DashboardOrdersPage() {
   const user = await getCurrentUser()
   if (!user) redirect('/auth/login')
 
-  let orders: Order[] = []
+  let orders: Array<{
+    id: string
+    total: number
+    status: string
+    createdAt: Date
+    orderItems: OrderItem[]
+  }> = []
+
   try {
-    orders = await prisma.order.findMany({
+    // Fetch orders first
+    const rawOrders = await prisma.order.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: 'desc' },
     })
+
+    // Fetch order items for all orders
+    const orderIds = rawOrders.map(o => o.id)
+    const orderItems = await prisma.orderItem.findMany({
+      where: { orderId: { in: orderIds } },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        quantity: true,
+        orderId: true,
+      },
+    })
+
+    // Group items by orderId
+    const itemsByOrderId = new Map<string, OrderItem[]>()
+    for (const item of orderItems) {
+      if (!itemsByOrderId.has(item.orderId)) {
+        itemsByOrderId.set(item.orderId, [])
+      }
+      itemsByOrderId.get(item.orderId)!.push({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+      })
+    }
+
+    // Combine orders with their items
+    orders = rawOrders.map(order => ({
+      id: order.id,
+      total: order.total,
+      status: order.status,
+      createdAt: order.createdAt,
+      orderItems: itemsByOrderId.get(order.id) || [],
+    }))
   } catch {
     // Database unavailable
   }
@@ -39,6 +75,16 @@ export default async function DashboardOrdersPage() {
     FAILED: 'bg-[#f43f5e]/20 text-[#f43f5e]',
     REFUNDED: 'bg-[#3b82f6]/20 text-[#3b82f6]',
     CANCELLED: 'bg-[#64748b]/20 text-[#64748b]',
+  }
+
+  function formatINR(paise: number): string {
+    if (paise === 0) return 'FREE'
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(paise / 100)
   }
 
   return (
@@ -69,14 +115,14 @@ export default async function DashboardOrdersPage() {
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusStyles[order.status] || ''}`}>
                     {order.status}
                   </span>
-                  <p className="text-xl font-bold text-white">${(order.total / 100).toFixed(2)}</p>
+                  <p className="text-xl font-bold text-white">{formatINR(order.total)}</p>
                 </div>
               </div>
               {/* Order Items */}
-              {Array.isArray(order.items) && (order.items as OrderItem[]).map((item, idx) => (
+              {Array.isArray(order.orderItems) && order.orderItems.map((item: OrderItem, idx: number) => (
                 <div key={idx} className="flex justify-between text-sm py-2">
                   <span className="text-[#cbd5e1]">{item.name} x{item.quantity}</span>
-                  <span className="text-white">${((item.price * item.quantity) / 100).toFixed(2)}</span>
+                  <span className="text-white">{formatINR(item.price * item.quantity)}</span>
                 </div>
               ))}
             </div>
@@ -85,4 +131,14 @@ export default async function DashboardOrdersPage() {
       )}
     </div>
   )
+}
+
+function formatINR(paise: number): string {
+  if (paise === 0) return 'FREE'
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(paise / 100)
 }

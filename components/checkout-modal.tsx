@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Loader2, CreditCard } from 'lucide-react'
+import { X, Loader2, CreditCard, Phone, Mail, User } from 'lucide-react'
 import { useCartStore } from '@/lib/store/cart'
 import { useUIStore } from '@/lib/store/ui'
 
@@ -19,8 +19,9 @@ export function CheckoutModal() {
   const total = useCartStore((state) => state.getTotal())
 
   const [step, setStep] = useState<Step>('contact')
-  const [formData, setFormData] = useState({ name: '', email: '' })
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '' })
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [razorpayOptions, setRazorpayOptions] = useState<any>(null)
   const modalRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -64,6 +65,7 @@ export function CheckoutModal() {
   }, [checkoutOpen])
 
   const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  const validatePhone = (phone: string) => /^[6-9]\d{9}$/.test(phone.replace(/\D/g, ''))
 
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -71,6 +73,8 @@ export function CheckoutModal() {
     if (!formData.name.trim()) newErrors.name = 'Name is required'
     if (!formData.email.trim()) newErrors.email = 'Email is required'
     else if (!validateEmail(formData.email)) newErrors.email = 'Invalid email address'
+    if (!formData.phone.trim()) newErrors.phone = 'Phone number required for payment'
+    else if (!validatePhone(formData.phone)) newErrors.phone = 'Enter valid 10-digit Indian mobile number'
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
       return
@@ -79,29 +83,104 @@ export function CheckoutModal() {
     setStep('payment')
   }
 
-  const handleStripeCheckout = async () => {
+  const formatINR = (rupees: number) => {
+    if (rupees === 0) return 'FREE'
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(rupees)
+  }
+
+  const handleRazorpayCheckout = async () => {
     setLoading(true)
     setErrors({})
     try {
       const apiItems = items.map((item) => ({
         productId: item.product.id,
         name: item.product.name,
-        price: Math.round(item.product.price * 100),
         quantity: item.quantity,
       }))
-      const res = await fetch('/api/checkout', {
+
+      const res = await fetch('/api/payment/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: apiItems, email: formData.email, name: formData.name }),
+        body: JSON.stringify({
+          items: apiItems,
+          email: formData.email,
+          name: formData.name,
+          phone: formData.phone.replace(/\D/g, ''),
+        }),
       })
+
       const data = await res.json()
-      if (!data.success || !data.data?.url) {
-        throw new Error(data.error?.message || 'Failed to create checkout session')
+
+      if (!data.success) {
+        throw new Error(data.error?.message || 'Failed to create payment order')
       }
+
+      if (data.data.allFree) {
+        addToast('success', 'All items are free! Redirecting to library...')
+        setTimeout(() => {
+          window.location.href = data.data.redirectUrl
+        }, 1000)
+        return
+      }
+
+      // Store razorpay options for payment
+      setRazorpayOptions({
+        key: data.data.keyId,
+        amount: data.data.amount,
+        currency: data.data.currency,
+        name: data.data.name,
+        description: data.data.description,
+        order_id: data.data.orderId,
+        prefill: data.data.customer,
+        theme: data.data.theme,
+        handler: async (response: any) => {
+          // Payment successful - verify on server
+          await verifyPayment(response, data.data.items, formData)
+        },
+        modal: {
+          ondismiss: () => {
+            addToast('error', 'Payment cancelled. Please try again.')
+            setLoading(false)
+          },
+        },
+      })
+
       setStep('success')
-      window.location.href = data.data.url
     } catch (err) {
-      addToast('error', err instanceof Error ? err.message : 'Payment failed. Please try again.')
+      addToast('error', err instanceof Error ? err.message : 'Payment initialization failed. Please try again.')
+      setLoading(false)
+    }
+  }
+
+  const verifyPayment = async (response: any, items: any[], customer: any) => {
+    try {
+      const verifyRes = await fetch('/api/payment/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+          items,
+          customer,
+        }),
+      })
+
+      const verifyData = await verifyRes.json()
+
+      if (verifyData.success) {
+        addToast('success', 'Payment successful! Welcome to your library.')
+        window.location.href = verifyData.data.redirectUrl || '/library'
+      } else {
+        throw new Error(verifyData.error?.message || 'Payment verification failed')
+      }
+    } catch (err) {
+      addToast('error', err instanceof Error ? err.message : 'Payment verification failed. Please contact support.')
     } finally {
       setLoading(false)
     }
@@ -110,12 +189,36 @@ export function CheckoutModal() {
   const resetAndClose = () => {
     closeCheckout()
     setStep('contact')
-    setFormData({ name: '', email: '' })
+    setFormData({ name: '', email: '', phone: '' })
     setErrors({})
+    setRazorpayOptions(null)
   }
 
   const inputClass =
     'w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-colors'
+
+  useEffect(() => {
+    if (step === 'success' && razorpayOptions) {
+      // Load Razorpay script and open checkout
+      const script = document.createElement('script')
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+      script.async = true
+      script.onload = () => {
+        const rzp = new (window as any).Razorpay(razorpayOptions)
+        rzp.open()
+        rzp.on('payment.failed', (response: any) => {
+          addToast('error', response.error?.description || 'Payment failed. Please try again.')
+          setLoading(false)
+          setStep('payment')
+        })
+      }
+      document.body.appendChild(script)
+      return () => {
+        document.body.removeChild(script)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, razorpayOptions])
 
   return (
     <AnimatePresence>
@@ -158,6 +261,7 @@ export function CheckoutModal() {
                 <form onSubmit={handleContactSubmit} className="space-y-4">
                   <div>
                     <label htmlFor="checkout-name" className="block text-sm font-medium text-foreground mb-1.5">
+                      <User className="w-4 h-4 inline mr-1" />
                       Full Name
                     </label>
                     <input
@@ -173,6 +277,7 @@ export function CheckoutModal() {
 
                   <div>
                     <label htmlFor="checkout-email" className="block text-sm font-medium text-foreground mb-1.5">
+                      <Mail className="w-4 h-4 inline mr-1" />
                       Email
                     </label>
                     <input
@@ -186,6 +291,23 @@ export function CheckoutModal() {
                     {errors.email && <p className="text-rose-400 text-xs mt-1">{errors.email}</p>}
                   </div>
 
+                  <div>
+                    <label htmlFor="checkout-phone" className="block text-sm font-medium text-foreground mb-1.5">
+                      <Phone className="w-4 h-4 inline mr-1" />
+                      Phone (for Razorpay)
+                    </label>
+                    <input
+                      id="checkout-phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      className={inputClass}
+                      placeholder="9876543210"
+                      maxLength={10}
+                    />
+                    {errors.phone && <p className="text-rose-400 text-xs mt-1">{errors.phone}</p>}
+                  </div>
+
                   <div className="border border-border rounded-lg p-4 mt-4">
                     <h3 className="text-sm font-semibold text-white mb-3">Order Summary</h3>
                     {items.map((item) => (
@@ -197,13 +319,13 @@ export function CheckoutModal() {
                           {item.product.name} &times;{item.quantity}
                         </span>
                         <span className="text-foreground">
-                          ${(item.product.price * item.quantity).toFixed(2)}
+                          {formatINR(item.product.price * item.quantity)}
                         </span>
                       </div>
                     ))}
                     <div className="border-t border-border pt-3 mt-3 flex justify-between font-semibold text-white text-sm">
                       <span>Total</span>
-                      <span>${total.toFixed(2)}</span>
+                      <span>{formatINR(total)}</span>
                     </div>
                   </div>
 
@@ -221,12 +343,12 @@ export function CheckoutModal() {
                   <div className="border border-border rounded-lg p-4">
                     <div className="flex justify-between font-semibold text-white text-sm">
                       <span>Total</span>
-                      <span>${total.toFixed(2)}</span>
+                      <span>{formatINR(total)}</span>
                     </div>
                   </div>
 
                   <button
-                    onClick={handleStripeCheckout}
+                    onClick={handleRazorpayCheckout}
                     disabled={isLoading}
                     className="w-full py-2.5 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
@@ -235,7 +357,7 @@ export function CheckoutModal() {
                     ) : (
                       <CreditCard className="w-4 h-4" />
                     )}
-                    {isLoading ? 'Creating session...' : 'Pay with Stripe'}
+                    {isLoading ? 'Loading payment...' : 'Pay with Razorpay'}
                   </button>
 
                   <button
@@ -254,9 +376,9 @@ export function CheckoutModal() {
                   <div className="flex justify-center">
                     <Loader2 className="w-14 h-14 text-[#f59e0b] animate-spin" />
                   </div>
-                  <h3 className="text-xl font-bold text-white">Redirecting to payment...</h3>
+                  <h3 className="text-xl font-bold text-white">Opening Razorpay...</h3>
                   <p className="text-sm text-muted-foreground">
-                    Please complete your payment on Stripe.
+                    Complete your payment securely on Razorpay.
                   </p>
                 </div>
               )}
@@ -266,4 +388,14 @@ export function CheckoutModal() {
       )}
     </AnimatePresence>
   )
+}
+
+function formatINR(rupees: number): string {
+  if (rupees === 0) return 'FREE'
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(rupees)
 }

@@ -5,17 +5,16 @@ import { apiSuccess, withErrorHandling, NotFoundError } from '@/lib/errors'
 import { z } from 'zod'
 
 const updateProductSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
+  title: z.string().min(1).max(200).optional(),
   slug: z.string().min(1).max(200).optional(),
   subtitle: z.string().min(1).max(500).optional(),
   description: z.string().min(1).optional(),
   price: z.number().int().min(0).optional(),
   originalPrice: z.number().int().min(0).optional().nullable(),
-  image: z.string().url().optional().nullable(),
-  features: z.array(z.string()).optional(),
-  bestseller: z.boolean().optional(),
-  featured: z.boolean().optional(),
-  active: z.boolean().optional(),
+  coverImage: z.string().url().optional().nullable(),
+  tags: z.array(z.string()).optional(),
+  isFeatured: z.boolean().optional(),
+  isActive: z.boolean().optional(),
 })
 
 export async function GET(
@@ -61,7 +60,18 @@ export async function PUT(
 
     const product = await prisma.product.update({
       where: { id },
-      data,
+      data: {
+        title: data.title,
+        slug: data.slug,
+        subtitle: data.subtitle,
+        description: data.description,
+        price: data.price,
+        originalPrice: data.originalPrice,
+        coverImage: data.coverImage,
+        tags: data.tags,
+        isFeatured: data.isFeatured,
+        isActive: data.isActive,
+      },
     })
 
     return apiSuccess(product)
