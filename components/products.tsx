@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { CheckCircle2, ShoppingCart, BookOpen, Loader2 } from 'lucide-react'
 import { useCartStore, type CartProduct } from '@/lib/store/cart'
 import { useUIStore } from '@/lib/store/ui'
+import { formatINR } from '@/lib/utils'
 import { ProductsSkeleton } from '@/components/products-skeleton'
 import { ProductsError } from '@/components/products-error'
 
@@ -38,16 +39,6 @@ interface DisplayProduct {
 
 function paiseToRupees(paise: number): number {
   return paise / 100
-}
-
-function formatINR(rupees: number): string {
-  if (rupees === 0) return 'FREE'
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(rupees)
 }
 
 function mapApiProduct(api: ApiProduct): DisplayProduct {
@@ -142,19 +133,7 @@ export function Products() {
     setAddingId(null)
   }
 
-  const cardStyle = {
-    backgroundColor: '#1a1a24',
-    border: '1px solid #1e293b',
-    borderRadius: '0.75rem',
-  }
-
-  const handleMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.currentTarget.style.borderColor = 'rgba(245, 158, 11, 0.3)'
-  }
-
-  const handleMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.currentTarget.style.borderColor = '#1e293b'
-  }
+  const cardBaseClass = "rounded-xl p-8 flex flex-col h-full transition-colors duration-250 relative hover:border-amber-500/30 bg-[#1a1a24] border border-[#1e293b]"
 
   if (loading) {
     return <ProductsSkeleton />
@@ -189,10 +168,7 @@ export function Products() {
           {regularProducts.map((product, idx) => (
             <div
               key={product.id}
-              className="rounded-xl p-8 flex flex-col h-full transition-colors duration-250 relative"
-              style={cardStyle}
-              onMouseEnter={handleMouseEnter}
-              onMouseLeave={handleMouseLeave}
+              className={cardBaseClass}
             >
               {product.isFree && (
                 <div className="absolute top-4 left-4 bg-emerald-500 text-black px-3 py-1 rounded-full text-xs font-bold uppercase">
@@ -261,10 +237,7 @@ export function Products() {
 
         {featuredProduct && (
           <div
-            className="relative rounded-xl p-8 transition-colors duration-250"
-            style={cardStyle}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
+            className="relative rounded-xl p-8 transition-colors duration-250 hover:border-amber-500/30 bg-[#1a1a24] border border-[#1e293b]"
           >
             {featuredProduct.isFree && (
               <div className="absolute top-4 left-4 bg-emerald-500 text-black px-3 py-1 rounded-full text-xs font-bold uppercase">

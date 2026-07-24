@@ -152,13 +152,13 @@ export function Footer() {
             &copy; {new Date().getFullYear()} Sincere.emotion. All rights reserved.
           </p>
           <div className="flex items-center gap-5">
-            <a href="#" className="text-xs text-muted-foreground hover:text-primary transition-colors">
+            <a href="https://twitter.com/sincere_emotion" target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary transition-colors">
               Twitter
             </a>
-            <a href="#" className="text-xs text-muted-foreground hover:text-primary transition-colors">
+            <a href="https://instagram.com/sincere_emotion" target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary transition-colors">
               Instagram
             </a>
-            <a href="#" className="text-xs text-muted-foreground hover:text-primary transition-colors">
+            <a href="https://linkedin.com/company/sincere_emotion" target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary transition-colors">
               LinkedIn
             </a>
           </div>

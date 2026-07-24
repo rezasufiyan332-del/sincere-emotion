@@ -3,6 +3,7 @@
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useCartStore } from '@/lib/store/cart'
+import { formatINR } from '@/lib/utils'
 import { XCircle, CreditCard, ArrowLeft, RotateCcw, Mail, Loader2 } from 'lucide-react'
 
 type ErrorType = 'canceled' | 'failed' | 'expired' | 'unknown'
@@ -24,16 +25,6 @@ const errorMessages: Record<ErrorType, { title: string; description: string }> =
     title: 'Payment Issue',
     description: 'Something went wrong with your payment. Please try again or contact support.',
   },
-}
-
-function formatINR(paise: number): string {
-  if (paise === 0) return 'FREE'
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(paise / 100)
 }
 
 export default function CheckoutFailurePage() {

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Loader2, CreditCard, Phone, Mail, User } from 'lucide-react'
 import { useCartStore } from '@/lib/store/cart'
 import { useUIStore } from '@/lib/store/ui'
+import { formatINR } from '@/lib/utils'
 
 type Step = 'contact' | 'payment' | 'success'
 
@@ -81,16 +82,6 @@ export function CheckoutModal() {
     }
     setErrors({})
     setStep('payment')
-  }
-
-  const formatINR = (rupees: number) => {
-    if (rupees === 0) return 'FREE'
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(rupees)
   }
 
   const handleRazorpayCheckout = async () => {

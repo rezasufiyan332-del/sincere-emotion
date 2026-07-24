@@ -2,16 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-
-function formatINR(paise: number): string {
-  if (paise === 0) return 'FREE'
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(paise / 100)
-}
+import { formatINR } from '@/lib/utils'
 
 export default async function DashboardPage() {
   const user = await getCurrentUser()

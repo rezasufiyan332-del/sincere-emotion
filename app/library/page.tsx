@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Loader2, BookOpen, ShoppingCart, Clock, CheckCircle, User, Lock } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { formatINR } from '@/lib/utils'
 
 interface LibraryItem {
   id: string
@@ -64,15 +65,6 @@ export default function LibraryPage() {
       setLoading(false)
       setAuthChecked(true)
     }
-  }
-
-  function formatINR(paise: number): string {
-    if (paise === 0) return 'FREE'
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 0,
-    }).format(paise / 100)
   }
 
   function handleLogin() {

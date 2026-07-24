@@ -6,16 +6,7 @@ import { X, Plus, Minus, Trash2 } from 'lucide-react'
 import Image from 'next/image'
 import { useCartStore } from '@/lib/store/cart'
 import { useUIStore } from '@/lib/store/ui'
-
-function formatINR(rupees: number): string {
-  if (rupees === 0) return 'FREE'
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(rupees)
-}
+import { formatINR } from '@/lib/utils'
 
 export function CartSidebar() {
   const cartOpen = useUIStore((state) => state.cartOpen)
