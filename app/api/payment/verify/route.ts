@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { razorpay } from '@/lib/razorpay'
 import { verifyPaymentSignature } from '@/lib/razorpay-utils'
-import { apiSuccess, apiError, AppError, withErrorHandling } from '@/lib/errors'
+import { apiSuccess, AppError, withErrorHandling } from '@/lib/errors'
 import { getOrCreateRequestId, withRequestContext } from '@/lib/request-id'
 import { cookies } from 'next/headers'
 
@@ -10,7 +11,10 @@ export async function POST(request: NextRequest) {
 
   return withErrorHandling(async () => {
     const body = await request.json()
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, items, customer } = body
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body
+
+    // SECURITY: Only trust razorpay_order_id, razorpay_payment_id, razorpay_signature
+    // Everything else must come from Razorpay server-side API (order notes)
 
     // Validate required fields
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
@@ -47,24 +51,57 @@ export async function POST(request: NextRequest) {
       console.info(withRequestContext(requestId, 'Order already exists, skipping', {
         orderId: existingOrder.id,
       }))
-
-      // Still need to ensure library entries exist
       await ensureLibraryEntries(existingOrder.id, razorpay_payment_id)
-
       return apiSuccess({
         orderId: existingOrder.id,
-        message: 'Order already processed',
+        redirectUrl: `/library`,
       })
     }
 
-    // Parse items from request
-    const parsedItems = items || []
-    const customerData = customer || {}
+    // SECURITY: Fetch order from Razorpay API to get verified data
+    // This ensures items/prices come from our server, not the client
+    let razorpayOrder: any
+    try {
+      razorpayOrder = await razorpay.orders.fetch(razorpay_order_id)
+    } catch (err) {
+      console.error(withRequestContext(requestId, 'Failed to fetch Razorpay order', { orderId: razorpay_order_id }))
+      throw new AppError('Could not verify order with Razorpay', 500, 'RAZORPAY_FETCH_ERROR')
+    }
 
-    // Calculate total
-    const total = parsedItems.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0)
+    if (!razorpayOrder || razorpayOrder.status !== 'paid') {
+      console.error(withRequestContext(requestId, 'Razorpay order not paid', {
+        orderId: razorpay_order_id,
+        status: razorpayOrder?.status,
+      }))
+      throw new AppError('Payment not completed', 400, 'PAYMENT_NOT_COMPLETED')
+    }
 
-    // FIRST: Check for existing session (logged in user)
+    // SECURITY: Reconstruct order data from Razorpay order notes (server-verified)
+    const notes = razorpayOrder.notes || {}
+    const verifiedItems = JSON.parse(notes.items || '[]') as Array<{
+      productId: string
+      title: string
+      price: number
+      quantity: number
+    }>
+
+    if (verifiedItems.length === 0) {
+      throw new AppError('No items found in order notes', 400, 'NO_ITEMS')
+    }
+
+    // Calculate total from VERIFIED server-side prices (not client-provided)
+    const total = verifiedItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+
+    // Get customer data from verified Razorpay order notes
+    const customerEmail = notes.customerEmail || razorpayOrder.receipt || ''
+    const customerName = notes.customerName || 'Guest'
+    const customerPhone = notes.customerPhone || ''
+
+    if (!customerEmail) {
+      throw new AppError('No customer email found in order', 400, 'NO_EMAIL')
+    }
+
+    // SECURITY: Check for existing session (logged in user)
     let userId = ''
     let user = null
 
@@ -83,20 +120,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // If no session, try to find user by email
+    // If no session, find user by email
     if (!user) {
       user = await prisma.user.findUnique({
-        where: { email: customerData.email.toLowerCase() },
+        where: { email: customerEmail.toLowerCase() },
       })
     }
 
-    // If still no user, create guest user
+    // If still no user, create guest user (with email, no password)
     if (!user) {
       user = await prisma.user.create({
         data: {
-          email: customerData.email.toLowerCase(),
-          name: customerData.name,
-          passwordHash: '', // No password for guest
+          email: customerEmail.toLowerCase(),
+          name: customerName,
+          passwordHash: '',
         },
       })
       console.info(withRequestContext(requestId, 'Created guest user', { userId: user.id }))
@@ -104,50 +141,55 @@ export async function POST(request: NextRequest) {
 
     userId = user.id
 
-    // Create order first
-    const order = await prisma.order.create({
-      data: {
-        userId,
-        email: customerData.email.toLowerCase(),
-        name: customerData.name,
-        phone: customerData.phone,
-        total,
-        status: 'COMPLETED',
-        razorpayOrderId: razorpay_order_id,
-        razorpayPaymentId: razorpay_payment_id,
-      },
-    })
-
-    // Create order items separately
-    await prisma.orderItem.createMany({
-      data: parsedItems.map((item: any) => ({
-        orderId: order.id,
-        productId: item.productId,
-        name: item.title,
-        price: item.price,
-        quantity: item.quantity,
-      })),
-    })
-
-    // Create library entries for each purchased product
-    for (const item of parsedItems) {
-      await prisma.userLibrary.create({
+    // SECURITY: Use transaction for order + library creation (atomic)
+    const order = await prisma.$transaction(async (tx) => {
+      // Create order with VERIFIED data from Razorpay
+      const newOrder = await tx.order.create({
         data: {
           userId,
-          productId: item.productId,
-          source: 'PURCHASED',
-          orderId: order.id,
+          email: customerEmail.toLowerCase(),
+          name: customerName,
+          phone: customerPhone,
+          total,
+          status: 'COMPLETED',
+          razorpayOrderId: razorpay_order_id,
+          razorpayPaymentId: razorpay_payment_id,
         },
-      }).catch(() => {
-        // Ignore duplicate library entries
       })
-    }
+
+      // Create order items from VERIFIED server data
+      await tx.orderItem.createMany({
+        data: verifiedItems.map((item) => ({
+          orderId: newOrder.id,
+          productId: item.productId,
+          name: item.title,
+          price: item.price,  // VERIFIED server price
+          quantity: item.quantity,
+        })),
+      })
+
+      // Create library entries for each purchased product
+      for (const item of verifiedItems) {
+        await tx.userLibrary.create({
+          data: {
+            userId,
+            productId: item.productId,
+            source: 'PURCHASED',
+            orderId: newOrder.id,
+          },
+        }).catch(() => {
+          // Ignore duplicate library entries (idempotent)
+        })
+      }
+
+      return newOrder
+    })
 
     console.info(withRequestContext(requestId, 'Order created successfully', {
       orderId: order.id,
       userId,
       total,
-      itemCount: parsedItems.length,
+      itemCount: verifiedItems.length,
     }))
 
     return apiSuccess({
@@ -163,7 +205,6 @@ async function ensureLibraryEntries(orderId: string, paymentId: string) {
   })
 
   if (order) {
-    // Fetch order items separately
     const orderItems = await prisma.orderItem.findMany({
       where: { orderId },
     })

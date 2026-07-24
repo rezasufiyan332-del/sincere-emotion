@@ -41,17 +41,13 @@ export async function createSession(userId: string): Promise<string> {
   const expires = new Date()
   expires.setDate(expires.getDate() + SESSION_EXPIRY_DAYS)
 
-  try {
-    await prisma.session.create({
-      data: {
-        userId,
-        sessionToken: token,
-        expires,
-      },
-    })
-  } catch {
-    // Database unavailable — still set cookie for UX
-  }
+  await prisma.session.create({
+    data: {
+      userId,
+      sessionToken: token,
+      expires,
+    },
+  })
 
   // Cookie is set by the API route using response.cookies.set()
   // This avoids conflicts between cookies().set() and NextResponse

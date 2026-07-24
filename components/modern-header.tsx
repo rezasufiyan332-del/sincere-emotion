@@ -94,16 +94,6 @@ export function ModernHeader() {
                 <span className="absolute bottom-0 left-0 h-px w-0 bg-[#f59e0b] transition-all duration-300 group-hover:w-full" />
               </a>
             ))}
-            {user && (
-              <Link
-                href="/library"
-                className="relative text-sm font-medium text-[#94a3b8] hover:text-[#f8fafc] transition-colors duration-200 py-1 group"
-              >
-                <BookOpen className="w-4 h-4 inline mr-1" />
-                My Library
-                <span className="absolute bottom-0 left-0 h-px w-0 bg-[#f59e0b] transition-all duration-300 group-hover:w-full" />
-              </Link>
-            )}
           </nav>
 
           {/* Right side */}

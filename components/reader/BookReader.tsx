@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Loader2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, BookOpen } from 'lucide-react'
+import DOMPurify from 'dompurify'
+import { Loader2, ChevronLeft, ZoomIn, ZoomOut, BookOpen } from 'lucide-react'
 
 interface BookReaderProps {
   pdfUrl: string
@@ -9,13 +10,7 @@ interface BookReaderProps {
 }
 
 export function BookReader({ pdfUrl, title }: BookReaderProps) {
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(0)
-  const [loading, setLoading] = useState(true)
   const [scale, setScale] = useState(1.2)
-
-  // For now, we'll display the markdown content as HTML
-  // In production, you'd use pdfjs-dist or epub.js
 
   return (
     <div className="min-h-screen bg-[#0a0a0f]">
@@ -58,26 +53,13 @@ export function BookReader({ pdfUrl, title }: BookReaderProps) {
         </div>
       </div>
 
-      {/* Navigation */}
+      {/* Bottom bar - no pagination (was non-functional) */}
       <div className="fixed bottom-0 left-0 right-0 bg-[#12121a] border-t border-[#1e293b]">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          <button
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
-            className="p-2 text-[#64748b] hover:text-white disabled:opacity-50"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <span className="text-sm text-[#64748b]">
-            {currentPage} / {totalPages || '...'}
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-center">
+          <span className="text-sm text-[#64748b] flex items-center gap-2">
+            <BookOpen className="w-4 h-4" />
+            Reading: {title}
           </span>
-          <button
-            onClick={() => setCurrentPage(p => Math.min(totalPages || 1, p + 1))}
-            disabled={currentPage === totalPages}
-            className="p-2 text-[#64748b] hover:text-white disabled:opacity-50"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
         </div>
       </div>
     </div>
@@ -95,7 +77,12 @@ function BookContent({ url }: { url: string }) {
         const text = await res.text()
         // Convert markdown to simple HTML
         const html = markdownToHtml(text)
-        setContent(html)
+        // SECURITY: Sanitize HTML to prevent XSS
+        setContent(DOMPurify.sanitize(html, {
+          ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'p', 'br', 'hr', 'strong', 'em', 'code', 'pre', 'ul', 'ol', 'li', 'a', 'span', 'div', 'blockquote'],
+          ALLOWED_ATTR: ['class', 'href', 'target', 'rel'],
+          ALLOW_DATA_ATTR: false,
+        }))
       } catch (err) {
         setContent('<p class="text-red-500">Failed to load book content</p>')
       } finally {

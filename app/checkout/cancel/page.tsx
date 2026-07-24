@@ -26,6 +26,16 @@ const errorMessages: Record<ErrorType, { title: string; description: string }> =
   },
 }
 
+function formatINR(paise: number): string {
+  if (paise === 0) return 'FREE'
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(paise / 100)
+}
+
 export default function CheckoutFailurePage() {
   const searchParams = useSearchParams()
   const errorType = (searchParams.get('error') as ErrorType) || 'unknown'
@@ -66,14 +76,14 @@ export default function CheckoutFailurePage() {
                     <span className="text-foreground">{item.product.name}</span>
                   </div>
                   <span className="text-muted-foreground">
-                    ${(item.product.price * item.quantity).toFixed(2)}
+                    {formatINR(item.product.price * item.quantity)}
                   </span>
                 </div>
               ))}
             </div>
             <div className="border-t border-border pt-2 flex justify-between font-semibold">
               <span>Total</span>
-              <span>${total.toFixed(2)}</span>
+              <span>{formatINR(total)}</span>
             </div>
           </div>
         )}
@@ -88,7 +98,7 @@ export default function CheckoutFailurePage() {
           </button>
 
           <Link
-            href="/products"
+            href="/#product"
             className="w-full py-3 border border-border text-foreground font-medium rounded-lg hover:bg-muted transition-colors flex items-center justify-center gap-2 block"
           >
             <ArrowLeft className="w-4 h-4" />

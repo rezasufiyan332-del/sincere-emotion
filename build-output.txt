@@ -1,0 +1,97 @@
+
+> my-project@0.1.0 build C:\Users\mdsal\Downloads\sincere-emotion-backup-main\sincere-emotion-backup-main
+> next build
+
+▲ Next.js 16.2.6 (Turbopack)
+- Environments: .env.local, .env
+- Experiments (use with caution):
+  · optimizePackageImports
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 25.7s
+  Running TypeScript ...
+  Finished TypeScript in 54s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/56) ...
+  Generating static pages using 7 workers (14/56) 
+  Generating static pages using 7 workers (28/56) 
+  Generating static pages using 7 workers (42/56) 
+✓ Generating static pages using 7 workers (56/56) in 5.3s
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /about
+├ ƒ /admin
+├ ƒ /admin/orders
+├ ƒ /admin/orders/[id]
+├ ƒ /admin/products
+├ ƒ /admin/products/[id]/edit
+├ ƒ /admin/products/new
+├ ƒ /admin/settings
+├ ƒ /admin/users
+├ ƒ /api/admin/audit
+├ ƒ /api/admin/orders
+├ ƒ /api/admin/orders/[id]
+├ ƒ /api/admin/orders/[id]/refund
+├ ƒ /api/admin/products
+├ ƒ /api/admin/products/[id]
+├ ƒ /api/admin/stats
+├ ƒ /api/admin/users
+├ ƒ /api/auth/[...nextauth]
+├ ƒ /api/auth/2fa/disable
+├ ƒ /api/auth/2fa/enable
+├ ƒ /api/auth/2fa/setup
+├ ƒ /api/auth/2fa/verify
+├ ƒ /api/auth/forgot-password
+├ ƒ /api/auth/login
+├ ƒ /api/auth/logout
+├ ƒ /api/auth/me
+├ ƒ /api/auth/register
+├ ƒ /api/auth/resend-verification
+├ ƒ /api/auth/reset-password
+├ ƒ /api/auth/sessions
+├ ƒ /api/auth/sessions/[id]
+├ ƒ /api/auth/verify-email
+├ ƒ /api/checkout
+├ ƒ /api/health
+├ ƒ /api/library
+├ ƒ /api/library/add-free
+├ ƒ /api/newsletter
+├ ƒ /api/newsletter/unsubscribe/[token]
+├ ƒ /api/orders
+├ ƒ /api/orders/[id]
+├ ƒ /api/orders/session/[sessionId]
+├ ƒ /api/payment/create-order
+├ ƒ /api/payment/verify
+├ ƒ /api/products
+├ ƒ /api/products/[id]
+├ ƒ /api/user/password
+├ ƒ /api/user/profile
+├ ƒ /api/webhook
+├ ƒ /api/webhook/razorpay
+├ ○ /auth/2fa
+├ ○ /auth/forgot-password
+├ ○ /auth/login
+├ ○ /auth/register
+├ ƒ /auth/reset-password
+├ ○ /auth/verify-email
+├ ○ /checkout/cancel
+├ ○ /checkout/success
+├ ○ /contact
+├ ○ /library
+├ ƒ /orders
+├ ○ /privacy
+├ ƒ /profile
+├ ƒ /read/[slug]
+├ ○ /robots.txt
+├ ○ /sitemap.xml
+└ ○ /terms
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

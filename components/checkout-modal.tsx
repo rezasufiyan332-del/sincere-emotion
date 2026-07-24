@@ -140,7 +140,8 @@ export function CheckoutModal() {
         theme: data.data.theme,
         handler: async (response: any) => {
           // Payment successful - verify on server
-          await verifyPayment(response, data.data.items, formData)
+          // SECURITY: Only pass response signature data
+          await verifyPayment(response)
         },
         modal: {
           ondismiss: () => {
@@ -157,8 +158,10 @@ export function CheckoutModal() {
     }
   }
 
-  const verifyPayment = async (response: any, items: any[], customer: any) => {
+  const verifyPayment = async (response: any) => {
     try {
+      // SECURITY: Only send Razorpay signature data
+      // Items/customer come from Razorpay order notes (server-verified)
       const verifyRes = await fetch('/api/payment/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -166,8 +169,6 @@ export function CheckoutModal() {
           razorpay_order_id: response.razorpay_order_id,
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_signature: response.razorpay_signature,
-          items,
-          customer,
         }),
       })
 
@@ -192,6 +193,7 @@ export function CheckoutModal() {
     setFormData({ name: '', email: '', phone: '' })
     setErrors({})
     setRazorpayOptions(null)
+    setLoading(false) // Clear loading state on close
   }
 
   const inputClass =
@@ -388,14 +390,4 @@ export function CheckoutModal() {
       )}
     </AnimatePresence>
   )
-}
-
-function formatINR(rupees: number): string {
-  if (rupees === 0) return 'FREE'
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(rupees)
 }

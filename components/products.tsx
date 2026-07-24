@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { CheckCircle2, ShoppingCart, BookOpen } from 'lucide-react'
+import { CheckCircle2, ShoppingCart, BookOpen, Loader2 } from 'lucide-react'
 import { useCartStore, type CartProduct } from '@/lib/store/cart'
 import { useUIStore } from '@/lib/store/ui'
 import { ProductsSkeleton } from '@/components/products-skeleton'
@@ -70,6 +70,7 @@ export function Products() {
   const [products, setProducts] = useState<DisplayProduct[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [addingId, setAddingId] = useState<string | null>(null)
 
   const addItem = useCartStore((state) => state.addItem)
   const addToast = useUIStore((state) => state.addToast)
@@ -100,6 +101,9 @@ export function Products() {
   }, [fetchProducts])
 
   const handleAddToCart = async (product: DisplayProduct) => {
+    if (addingId) return // Prevent double-click
+    setAddingId(product.id)
+    
     if (product.isFree) {
       try {
         const res = await fetch('/api/library/add-free', {
@@ -118,6 +122,8 @@ export function Products() {
         }
       } catch {
         addToast('error', 'Failed to add free book')
+      } finally {
+        setAddingId(null)
       }
       return
     }
@@ -133,6 +139,7 @@ export function Products() {
     addItem(cartProduct, 1)
     addToast('success', `${product.name} added to cart!`)
     setTimeout(() => toggleCart(), 300)
+    setAddingId(null)
   }
 
   const cardStyle = {
@@ -224,13 +231,16 @@ export function Products() {
               </div>
               <button
                 onClick={() => handleAddToCart(product)}
-                className={`w-full py-3 font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 ${
+                disabled={addingId === product.id}
+                className={`w-full py-3 font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
                   product.isFree
                     ? 'bg-emerald-500 hover:bg-emerald-600 text-black'
                     : 'bg-[#f59e0b] hover:bg-[#d97706] text-[#0a0a0f]'
                 }`}
               >
-                {product.isFree ? (
+                {addingId === product.id ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : product.isFree ? (
                   <>
                     <BookOpen className="w-5 h-5" />
                     Read Free
