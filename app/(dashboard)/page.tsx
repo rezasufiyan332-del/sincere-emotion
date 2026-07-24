@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { formatINR } from '@/lib/utils'
+import { formatINR, paiseToRupees } from '@/lib/utils'
 
 export default async function DashboardPage() {
   const user = await getCurrentUser()
@@ -81,7 +81,7 @@ export default async function DashboardPage() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-white font-bold">{formatINR(order.total)}</p>
+                  <p className="text-white font-bold">{formatINR(paiseToRupees(order.total))}</p>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${
                     order.status === 'COMPLETED' ? 'bg-[#10b981]/20 text-[#10b981]' :
                     order.status === 'PENDING' ? 'bg-[#f59e0b]/20 text-[#f59e0b]' :
