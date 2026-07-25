@@ -10,6 +10,7 @@ services:
     plan: free
     buildCommand: pnpm install && pnpm build
     startCommand: pnpm start
+    preDeployCommand: npx prisma db push --accept-data-loss && npx tsx prisma/seed.ts || true
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
