@@ -18,10 +18,10 @@ console.log('[db-init] Starting database bootstrap...')
 
 try {
   console.log('[db-init] Step 1/3 - prisma generate')
-  execSync('npx prisma generate', { stdio: 'inherit', cwd: projectRoot })
+  execSync('npx prisma generate --schema=./prisma/schema.prisma', { stdio: 'inherit', cwd: projectRoot })
 
   console.log('[db-init] Step 2/3 - prisma db push (idempotent)')
-  execSync('npx prisma db push --accept-data-loss --skip-generate', {
+  execSync('npx prisma db push --accept-data-loss --skip-generate --schema=./prisma/schema.prisma', {
     stdio: 'inherit',
     cwd: projectRoot,
   })
