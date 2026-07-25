@@ -21,9 +21,10 @@ try {
   execSync('npx prisma generate --schema=./prisma/schema.prisma', { stdio: 'inherit', cwd: projectRoot })
 
   console.log('[db-init] Step 2/3 - prisma db push (idempotent)')
-  execSync('npx prisma db push --accept-data-loss --skip-generate --schema=./prisma/schema.prisma', {
+  execSync('npx prisma db push --accept-data-loss --schema=./prisma/schema.prisma', {
     stdio: 'inherit',
     cwd: projectRoot,
+    env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL },
   })
 
   if (existsSync(seedPath) && schemaPath) {
