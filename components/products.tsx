@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { CheckCircle2, ShoppingCart, BookOpen, Loader2 } from 'lucide-react'
 import { useCartStore, type CartProduct } from '@/lib/store/cart'
 import { useUIStore } from '@/lib/store/ui'
@@ -166,9 +167,10 @@ export function Products() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {regularProducts.map((product, idx) => (
-            <div
+            <Link
               key={product.id}
-              className={cardBaseClass}
+              href={`/products/${product.slug}`}
+              className={cardBaseClass + ' cursor-pointer'}
             >
               {product.isFree && (
                 <div className="absolute top-4 left-4 bg-emerald-500 text-black px-3 py-1 rounded-full text-xs font-bold uppercase">
@@ -184,7 +186,7 @@ export function Products() {
               <p className="text-sm text-[#f59e0b]/80 mb-3">{product.subtitle}</p>
               <p className="text-sm text-[#64748b] mb-5 line-clamp-2">{product.description}</p>
               <div className="space-y-2.5 mb-6 flex-grow">
-                {product.benefits.map((benefit, i) => (
+                {product.benefits.slice(0, 3).map((benefit, i) => (
                   <div key={i} className="flex items-start gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
                     <span className="text-sm text-[#cbd5e1]">{benefit}</span>
@@ -205,18 +207,14 @@ export function Products() {
                   </p>
                 )}
               </div>
-              <button
-                onClick={() => handleAddToCart(product)}
-                disabled={addingId === product.id}
-                className={`w-full py-3 font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+              <div
+                className={`w-full py-3 font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 ${
                   product.isFree
-                    ? 'bg-emerald-500 hover:bg-emerald-600 text-black'
-                    : 'bg-[#f59e0b] hover:bg-[#d97706] text-[#0a0a0f]'
+                    ? 'bg-emerald-500 text-black'
+                    : 'bg-[#f59e0b] text-[#0a0a0f]'
                 }`}
               >
-                {addingId === product.id ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : product.isFree ? (
+                {product.isFree ? (
                   <>
                     <BookOpen className="w-5 h-5" />
                     Read Free
@@ -224,38 +222,32 @@ export function Products() {
                 ) : (
                   <>
                     <ShoppingCart className="w-5 h-5" />
-                    Add to Cart
+                    View Guide
                   </>
                 )}
-              </button>
+              </div>
               <p className="text-xs text-[#64748b] text-center mt-3">
                 {product.isFree ? 'Instant access · No payment needed' : 'Instant access · 30-day guarantee'}
               </p>
-            </div>
+            </Link>
           ))}
         </div>
 
         {featuredProduct && (
-          <div
-            className="relative rounded-xl p-8 transition-colors duration-250 hover:border-amber-500/30 bg-[#1a1a24] border border-[#1e293b]"
+          <Link
+            href={`/products/${featuredProduct.slug}`}
+            className="relative rounded-xl p-8 transition-colors duration-250 hover:border-amber-500/30 bg-[#1a1a24] border border-[#1e293b] block cursor-pointer"
           >
-            {featuredProduct.isFree && (
-              <div className="absolute top-4 left-4 bg-emerald-500 text-black px-3 py-1 rounded-full text-xs font-bold uppercase">
-                FREE
-              </div>
-            )}
-            {!featuredProduct.isFree && (
-              <div className="absolute top-4 left-4 bg-[#f59e0b] text-[#0a0a0f] px-3 py-1 rounded-full text-xs font-bold uppercase">
-                Best Value
-              </div>
-            )}
+            <div className="absolute top-4 left-4 bg-[#f59e0b] text-[#0a0a0f] px-3 py-1 rounded-full text-xs font-bold uppercase">
+              Best Value
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center mt-4">
               <div>
                 <h3 className="text-2xl font-bold text-[#f8fafc] mb-2">{featuredProduct.name}</h3>
                 <p className="text-sm text-[#f59e0b]/80 mb-4">{featuredProduct.subtitle}</p>
                 <p className="text-base text-[#cbd5e1] mb-6">{featuredProduct.description}</p>
                 <div className="space-y-2.5 mb-8">
-                  {featuredProduct.benefits.map((benefit, i) => (
+                  {featuredProduct.benefits.slice(0, 3).map((benefit, i) => (
                     <div key={i} className="flex items-start gap-2.5">
                       <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
                       <span className="text-sm text-[#cbd5e1]">{benefit}</span>
@@ -275,18 +267,13 @@ export function Products() {
                     </p>
                   )}
                 </div>
-                <button
-                  onClick={() => handleAddToCart(featuredProduct)}
-                  className={`w-full py-3 font-semibold rounded-lg transition-colors duration-200 ${
-                    featuredProduct.isFree
-                      ? 'bg-emerald-500 hover:bg-emerald-600 text-black'
-                      : 'bg-[#f59e0b] hover:bg-[#d97706] text-[#0a0a0f]'
-                  }`}
-                >
-                  {featuredProduct.isFree ? 'Get Free Access' : 'Get Complete Bundle'}
-                </button>
+                <div className={`w-full py-3 font-semibold rounded-lg transition-colors duration-200 text-center ${
+                  'bg-[#f59e0b] text-[#0a0a0f]'
+                }`}>
+                  Get Complete Bundle
+                </div>
                 <p className="text-xs text-[#64748b] text-center mt-3">
-                  {featuredProduct.isFree ? 'Instant access · No payment needed' : 'Instant access · 30-day guarantee · Lifetime updates'}
+                  Instant access · 30-day guarantee · Lifetime updates
                 </p>
               </div>
               {featuredProduct.image && (
@@ -295,14 +282,14 @@ export function Products() {
                 </div>
               )}
             </div>
-          </div>
+          </Link>
         )}
 
         <div className="mt-16 text-center">
           <p className="text-[#cbd5e1] mb-6">Not sure which guide is right for you?</p>
-          <button className="px-8 py-3 border border-[#64748b] text-[#f8fafc] font-semibold rounded-lg hover:border-[#f59e0b] hover:text-[#f59e0b] transition-colors duration-200">
-            Take the Attachment Quiz
-          </button>
+          <Link href="/products/the-complete-healing-collection" className="px-8 py-3 border border-[#64748b] text-[#f8fafc] font-semibold rounded-lg hover:border-[#f59e0b] hover:text-[#f59e0b] transition-colors duration-200 inline-block">
+            Get the Complete Collection — Save 40%
+          </Link>
         </div>
       </div>
 </section>

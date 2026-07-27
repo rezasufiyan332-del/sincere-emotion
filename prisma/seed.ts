@@ -79,13 +79,21 @@ const products = [
 async function main() {
   console.log('Seeding products...')
 
+  // Delete old test products that are no longer active
+  const oldSlugs = ['anxious-attachment-guide', 'avoidant-attachment-workbook', 'secure-attachment-blueprint', 'free-mini-guide']
+  const deleteResult = await prisma.product.deleteMany({
+    where: { slug: { in: oldSlugs } },
+  })
+  console.log(`  Deleted ${deleteResult.count} old test products`)
+
+  // Upsert new products
   for (const product of products) {
     await prisma.product.upsert({
       where: { slug: product.slug },
       update: product,
       create: product,
     })
-    console.log(`  Upserted: ${product.title} (${product.isFree ? 'FREE' : '₹' + product.price/100})`)
+    console.log(`  Upserted: ${product.title} ($${product.price/100})`)
   }
 
   const count = await prisma.product.count()
