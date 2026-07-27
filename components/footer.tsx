@@ -7,10 +7,10 @@ const footerLinks = [
   {
     title: 'Products',
     items: [
-      { label: 'Anxious Attachment', href: '#product' },
-      { label: 'Avoidant Attachment', href: '#product' },
-      { label: 'Secure Attachment', href: '#product' },
-      { label: 'Bundle Deal', href: '#product' },
+      { label: '7-Day Guide ($9)', href: '/products/stop-chasing-start-choosing' },
+      { label: 'The Anxious Heart ($29)', href: '/products/the-anxious-heart' },
+      { label: 'Attachment Mastery ($39)', href: '/products/attachment-mastery' },
+      { label: 'Complete Collection ($59)', href: '/products/the-complete-healing-collection' },
     ],
   },
   {
