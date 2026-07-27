@@ -38,7 +38,7 @@ const products = [
     category: 'attachment',
     tags: ['anxious', 'anxiety', 'relationships', 'comprehensive'],
     isActive: true,
-    isFeatured: true,
+    isFeatured: false,
   },
   {
     title: 'Attachment Mastery',
