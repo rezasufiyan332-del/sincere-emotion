@@ -7,72 +7,72 @@ const prisma = new PrismaClient({ adapter: pool })
 
 const products = [
   {
-    title: 'Anxious Attachment Guide',
-    slug: 'anxious-attachment-guide',
-    subtitle: 'Calm Your Anxiety, Reclaim Your Worth',
-    description: 'Understanding the anxious attachment pattern and breaking the cycle of chasing unavailable partners. A transformative 45-page guide with exercises, regulation tools, and a 21-day integration practice.',
-    price: 200,           // ₹2
-    originalPrice: 499,   // ~₹5
+    title: 'Stop Chasing, Start Choosing',
+    slug: 'stop-chasing-start-choosing',
+    subtitle: 'A 7-Day Guide to Healing Your Attachment Wounds',
+    description: 'The guide that helps you stop overthinking, stop chasing unavailable people, and finally feel secure in love. In just 7 days, you will understand why you keep attracting the wrong people, learn to calm your anxious thoughts in 10 minutes or less, and discover the 3-step method to break the anxious-avoidant cycle once and for all. This is for you if you are tired of giving your all to someone who gives you crumbs.',
+    price: 900,            // $9.00
+    originalPrice: 1500,   // $15.00
     coverImage: '/product-1.png',
     isFree: false,
     format: 'PDF' as const,
-    pdfUrl: '/books/anxious-attachment-guide.md',
-    pages: 45,
+    pdfUrl: '/books/stop-chasing-start-choosing.pdf',
+    pages: 32,
     category: 'attachment',
-    tags: ['anxious', 'anxiety', 'guide', 'regulation'],
+    tags: ['anxious', 'healing', '7-day', 'quick-start'],
     isActive: true,
     isFeatured: false,
   },
   {
-    title: 'Avoidant Attachment Workbook',
-    slug: 'avoidant-attachment-workbook',
-    subtitle: 'Build Emotional Closeness',
-    description: 'For those afraid of intimacy: Understanding avoidant patterns and learning to let people in. A practical 50-page workbook with vulnerability ladder, communication rewiring, and 30-day protocol.',
-    price: 500,           // ₹5
-    originalPrice: 999,   // ~₹10
+    title: 'The Anxious Heart',
+    slug: 'the-anxious-heart',
+    subtitle: 'Your Complete Guide to Overcoming Relationship Anxiety',
+    description: 'This is the book for anyone who has ever felt like they were too much, too needy, or too emotional. The Anxious Heart takes you through a journey of understanding where your anxiety comes from, why it shows up in relationships, and exactly how to rewire your nervous system so you no longer live in fear of abandonment. With 14 chapters of practical exercises, real stories, and step-by-step guidance, this book will change the way you love.',
+    price: 2900,           // $29.00
+    originalPrice: 4900,   // $49.00
     coverImage: '/product-2.png',
     isFree: false,
     format: 'PDF' as const,
-    pdfUrl: '/books/avoidant-attachment-workbook.md',
-    pages: 50,
+    pdfUrl: '/books/the-anxious-heart.pdf',
+    pages: 68,
     category: 'attachment',
-    tags: ['avoidant', 'workbook', 'intimacy', 'vulnerability'],
-    isActive: true,
-    isFeatured: false,
-  },
-  {
-    title: 'Secure Attachment Blueprint',
-    slug: 'secure-attachment-blueprint',
-    subtitle: 'Your Foundation for Lasting Love',
-    description: 'The ultimate guide to developing secure attachment and maintaining healthy relationships. Covers regulation mastery, SECURE communication, boundaries without walls, repair mastery, and 90-day integration plan.',
-    price: 1000,          // ₹10
-    originalPrice: 1999,  // ~₹20
-    coverImage: '/product-3.png',
-    isFree: false,
-    format: 'PDF' as const,
-    pdfUrl: '/books/secure-attachment-blueprint.md',
-    pages: 50,
-    category: 'attachment',
-    tags: ['secure', 'blueprint', 'relationships', 'communication'],
+    tags: ['anxious', 'anxiety', 'relationships', 'comprehensive'],
     isActive: true,
     isFeatured: true,
   },
   {
-    title: 'Free Mini Guide: Attachment Quick-Start',
-    slug: 'free-mini-guide',
-    subtitle: 'Discover Your Style in 3 Minutes',
-    description: 'A transformative 15-page introduction to attachment theory. Quick quiz, immediate regulation tools, and clear next steps. Perfect starting point for your healing journey.',
-    price: 0,             // FREE
-    originalPrice: 0,
-    coverImage: '/product-4.png',
-    isFree: true,
+    title: 'Attachment Mastery',
+    slug: 'attachment-mastery',
+    subtitle: 'The Definitive Guide to Secure, Healthy Relationships',
+    description: 'Attachment Mastery is the ultimate guide for anyone who is ready to transform their relationships from the inside out. Whether you are anxious, avoidant, or confused about why your relationships never seem to work, this book gives you the complete framework. You will learn to identify your exact attachment patterns, understand how they were formed in childhood, break free from toxic cycles, build secure communication skills, and create relationships that actually feel safe. This is not just a book; it is a complete system for lasting change.',
+    price: 3900,           // $39.00
+    originalPrice: 6700,   // $67.00
+    coverImage: '/product-3.png',
+    isFree: false,
     format: 'PDF' as const,
-    pdfUrl: '/books/free-mini-guide.md',
-    pages: 15,
+    pdfUrl: '/books/attachment-mastery.pdf',
+    pages: 96,
     category: 'attachment',
-    tags: ['free', 'intro', 'quiz', 'quick-start'],
+    tags: ['secure', 'mastery', 'relationships', 'complete'],
     isActive: true,
     isFeatured: false,
+  },
+  {
+    title: 'The Complete Healing Collection',
+    slug: 'the-complete-healing-collection',
+    subtitle: 'All 3 Guides + Bonus Materials — Save 40%',
+    description: 'Everything you need to heal your attachment wounds and build secure, lasting relationships. Includes Stop Chasing, Start Choosing (7-Day Guide), The Anxious Heart (Complete Guide), and Attachment Mastery (Definitive Guide), plus exclusive bonus materials including guided journal prompts, communication scripts, and a relationship audit worksheet. Over 196 pages of healing content. The complete journey from awareness to mastery.',
+    price: 5900,           // $59.00
+    originalPrice: 9900,   // $99.00
+    coverImage: '/product-bundle.png',
+    isFree: false,
+    format: 'PDF' as const,
+    pdfUrl: '/books/complete-healing-collection.pdf',
+    pages: 196,
+    category: 'bundle',
+    tags: ['bundle', 'complete', 'savings', 'all-in-one'],
+    isActive: true,
+    isFeatured: true,
   },
 ]
 
