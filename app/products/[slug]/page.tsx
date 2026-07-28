@@ -209,7 +209,7 @@ export default async function ProductPage({ params }: PageProps) {
             {product.description}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
-            <AddToCartButton productId={product.id} productName={product.title} price={product.price} originalPrice={product.originalPrice ?? product.price} />
+            <AddToCartButton productId={product.id} productName={product.title} price={price} originalPrice={originalPrice} />
           </div>
           <div className="flex items-center justify-center gap-6 text-sm text-[#64748b]">
             <span className="flex items-center gap-2"><Download className="w-4 h-4" /> Instant Download</span>
@@ -375,7 +375,7 @@ export default async function ProductPage({ params }: PageProps) {
             <p className="text-[#64748b] mb-8 max-w-lg mx-auto">
               Instant access · 30-day guarantee · Lifetime updates · Read on any device
             </p>
-            <AddToCartButton productId={product.id} productName={product.title} price={product.price} originalPrice={product.originalPrice ?? product.price} />
+            <AddToCartButton productId={product.id} productName={product.title} price={price} originalPrice={originalPrice} />
           </div>
         </div>
       </section>
