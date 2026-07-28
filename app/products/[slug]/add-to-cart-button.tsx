@@ -3,55 +3,41 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ShoppingCart, Loader2, Zap } from 'lucide-react'
+import { useCartStore, type CartProduct } from '@/lib/store/cart'
+import { useUIStore } from '@/lib/store/ui'
 
 interface Props {
   productId: string
   productName: string
+  productSubtitle?: string
+  productImage?: string
   price: number
   originalPrice: number
 }
 
-export function AddToCartButton({ productId, productName, price, originalPrice }: Props) {
+export function AddToCartButton({ productId, productName, productSubtitle, productImage, price, originalPrice }: Props) {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const addItem = useCartStore((state) => state.addItem)
+  const addToast = useUIStore((state) => state.addToast)
 
-  const handleBuyNow = async () => {
-    setLoading(true)
-    try {
-      const res = await fetch('/api/payment/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: [{ productId, name: productName, price, quantity: 1 }],
-          email: '',
-          name: '',
-        }),
-      })
-      const data = await res.json()
-      if (data.success && data.data.orderId) {
-        router.push(`/checkout?order=${data.data.orderId}`)
-      } else {
-        router.push('/checkout')
-      }
-    } catch {
-      router.push('/checkout')
-    } finally {
-      setLoading(false)
-    }
+  const cartProduct: CartProduct = {
+    id: productId,
+    name: productName,
+    price,
+    originalPrice,
+    image: productImage || '',
+    subtitle: productSubtitle || '',
+  }
+
+  const handleBuyNow = () => {
+    addItem(cartProduct, 1)
+    router.push('/checkout')
   }
 
   const handleAddToCart = () => {
-    // Store in localStorage for cart sidebar
-    const cart = JSON.parse(localStorage.getItem('cart-store') || '{"state":{"items":[]}}')
-    const existing = cart.state.items.find((i: any) => i.product.id === productId)
-    if (!existing) {
-      cart.state.items.push({
-        product: { id: productId, name: productName, price, originalPrice, image: '', subtitle: '' },
-        quantity: 1,
-      })
-      localStorage.setItem('cart-store', JSON.stringify(cart))
-    }
-    window.dispatchEvent(new Event('cart-updated'))
+    addItem(cartProduct, 1)
+    addToast('success', `${productName} added to cart!`)
   }
 
   return (
