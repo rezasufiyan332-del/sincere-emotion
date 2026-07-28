@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
           case 'oldest':
             return { createdAt: 'asc' as const }
           default:
-            return { createdAt: 'desc' as const }
+            return { price: 'asc' as const }
         }
       })()
 

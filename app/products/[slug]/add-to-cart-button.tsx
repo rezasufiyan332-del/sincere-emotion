@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { ShoppingCart, Loader2, BookOpen } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ShoppingCart, Loader2, Zap } from 'lucide-react'
 
 interface Props {
   productId: string
@@ -12,11 +13,11 @@ interface Props {
 
 export function AddToCartButton({ productId, productName, price, originalPrice }: Props) {
   const [loading, setLoading] = useState(false)
+  const router = useRouter()
 
-  const handleAdd = async () => {
+  const handleBuyNow = async () => {
     setLoading(true)
     try {
-      // Direct Razorpay checkout
       const res = await fetch('/api/payment/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -28,31 +29,52 @@ export function AddToCartButton({ productId, productName, price, originalPrice }
       })
       const data = await res.json()
       if (data.success && data.data.orderId) {
-        // Redirect to checkout or show Razorpay
-        window.location.href = `/checkout?order=${data.data.orderId}&product=${productName}`
+        router.push(`/checkout?order=${data.data.orderId}`)
       } else {
-        // Fallback: add to cart
-        alert(`${productName} added to cart! Checkout from the cart.`)
+        router.push('/checkout')
       }
     } catch {
-      alert(`${productName} added to cart!`)
+      router.push('/checkout')
     } finally {
       setLoading(false)
     }
   }
 
+  const handleAddToCart = () => {
+    // Store in localStorage for cart sidebar
+    const cart = JSON.parse(localStorage.getItem('cart-store') || '{"state":{"items":[]}}')
+    const existing = cart.state.items.find((i: any) => i.product.id === productId)
+    if (!existing) {
+      cart.state.items.push({
+        product: { id: productId, name: productName, price, originalPrice, image: '', subtitle: '' },
+        quantity: 1,
+      })
+      localStorage.setItem('cart-store', JSON.stringify(cart))
+    }
+    window.dispatchEvent(new Event('cart-updated'))
+  }
+
   return (
-    <button
-      onClick={handleAdd}
-      disabled={loading}
-      className="inline-flex items-center gap-2 px-8 py-4 bg-[#f59e0b] hover:bg-[#d97706] text-[#0a0a0f] font-bold rounded-lg transition-all duration-300 disabled:opacity-50 shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40"
-    >
-      {loading ? (
-        <Loader2 className="w-5 h-5 animate-spin" />
-      ) : (
+    <div className="flex flex-col sm:flex-row gap-3 w-full">
+      <button
+        onClick={handleBuyNow}
+        disabled={loading}
+        className="flex-1 inline-flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-[#f59e0b] to-[#f97316] hover:from-[#d97706] hover:to-[#f59e0b] text-[#0a0a0f] font-bold text-lg rounded-lg transition-all duration-300 disabled:opacity-50 shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 cursor-pointer"
+      >
+        {loading ? (
+          <Loader2 className="w-5 h-5 animate-spin" />
+        ) : (
+          <Zap className="w-5 h-5" />
+        )}
+        Buy Now — ${price}
+      </button>
+      <button
+        onClick={handleAddToCart}
+        className="inline-flex items-center justify-center gap-2 px-6 py-4 border-2 border-[#f59e0b] text-[#f59e0b] font-semibold rounded-lg hover:bg-[#f59e0b]/10 transition-all duration-300 cursor-pointer"
+      >
         <ShoppingCart className="w-5 h-5" />
-      )}
-      Get This Guide
-    </button>
+        Add to Cart
+      </button>
+    </div>
   )
 }
